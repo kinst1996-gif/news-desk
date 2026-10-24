@@ -1,0 +1,1302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>News Desk</title>
+<meta name="description" content="Live instrumentation, AI, robotics and UAE news, ready to post on LinkedIn.">
+<meta name="theme-color" content="#060b14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --font-anthropic-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; --font-anthropic-serif: Georgia, serif; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: dark; }
+  html, body { margin: 0; background: #060b14; min-height: 100%; }
+  #dash-root { min-height: 100vh; }
+  .dash-skeleton:empty { min-height: 120px; border-radius: 10px; background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.07), rgba(255,255,255,.03)); background-size: 200% 100%; animation: sk 1.4s linear infinite; }
+  @keyframes sk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="shim.js"></script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+/* Concept: a process control room at night. Dark signal-grid console, cyan measurement traces, one neon accent per beat. Single deliberate dark look. */
+#dash-root { --dash-gutter: 0; }
+.nd {
+  --bg: #060b14; --bg2: #0a1322; --panel: rgba(16, 28, 48, .62); --panel-solid: #0f1b2e; --line: rgba(120, 190, 255, .14); --line-hi: rgba(120, 220, 255, .38);
+  --fg: #e6f1ff; --muted: #8aa0bd; --dim: #5d7290;
+  --cyan: #3fe0ff; --violet: #a68bff; --green: #46f0a4; --amber: #ffc457; --magenta: #ff6fcf; --red: #ff5a6e;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+  --sans: var(--font-anthropic-sans), "Segoe UI", system-ui, sans-serif;
+  --r: 14px; --ease: cubic-bezier(.2, .8, .2, 1);
+  color-scheme: dark; color: var(--fg); font-family: var(--sans);
+}
+.nd.app {
+  position: relative; overflow: hidden; background: var(--bg); min-height: 100%;
+  padding-block: 22px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.nd.app::before { /* signal grid */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 44px 44px; opacity: .35;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 85%); mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 85%);
+}
+.nd .glow { position: absolute; width: 60vw; height: 60vw; max-width: 900px; max-height: 900px; border-radius: 50%; filter: blur(80px); opacity: .22; pointer-events: none; }
+.nd .glow.a { background: var(--cyan); top: -30vw; left: -15vw; }
+.nd .glow.b { background: var(--violet); top: 10vw; right: -25vw; opacity: .16; }
+.nd .scan { position: absolute; left: 0; right: 0; height: 120px; top: -120px; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(63, 224, 255, .06) 70%, rgba(63, 224, 255, .18)); }
+.nd .wrap { position: relative; max-width: 1180px; margin-inline: auto; display: grid; gap: 18px; }
+
+/* header */
+.nd .hero { position: relative; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: linear-gradient(135deg, rgba(14, 30, 54, .9), rgba(8, 16, 30, .9)); }
+.nd .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; }
+.nd .hero-in { position: relative; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; padding: 26px 24px 22px; }
+.nd .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .28em; text-transform: uppercase; color: var(--cyan); display: flex; align-items: center; gap: 8px; }
+.nd h1 { margin: 6px 0 0; font-size: clamp(30px, 5vw, 46px); font-weight: 700; letter-spacing: -.01em; line-height: 1.02; text-wrap: balance;
+  background: linear-gradient(92deg, #ffffff 10%, var(--cyan) 55%, var(--violet) 95%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.nd .take { color: var(--muted); margin: 8px 0 0; font-size: 14px; max-width: 60ch; }
+.nd .status { display: grid; gap: 8px; justify-items: end; }
+.nd .clock { font-family: var(--mono); font-size: 26px; font-variant-numeric: tabular-nums; color: var(--fg); letter-spacing: .04em; text-shadow: 0 0 18px rgba(63, 224, 255, .45); }
+.nd .clock small { font-size: 11px; color: var(--muted); letter-spacing: .2em; margin-left: 6px; }
+.nd .fetched { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.nd .live { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .22em; color: var(--red); text-transform: uppercase; }
+.nd .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); position: relative; box-shadow: 0 0 10px var(--red); }
+.nd .dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: var(--red); }
+
+/* controls */
+.nd .btn { font: 600 12px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; padding: 10px 16px; border-radius: 999px; cursor: pointer; color: var(--bg);
+  background: linear-gradient(90deg, var(--cyan), #7fb8ff); border: 0; box-shadow: 0 0 0 1px rgba(63, 224, 255, .5), 0 6px 24px rgba(63, 224, 255, .25); transition: transform .2s var(--ease), box-shadow .2s var(--ease); }
+.nd .btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(63, 224, 255, .8), 0 10px 30px rgba(63, 224, 255, .4); }
+.nd .btn:disabled { opacity: .6; cursor: progress; }
+.nd .chip { font: 500 12px/1 var(--sans); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--muted); cursor: pointer; transition: all .2s var(--ease); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.nd .chip:hover { color: var(--fg); border-color: var(--line-hi); }
+.nd .chip[aria-pressed=true] { color: var(--bg); background: var(--c, var(--cyan)); border-color: transparent; box-shadow: 0 0 18px color-mix(in srgb, var(--c, var(--cyan)) 55%, transparent); }
+.nd .sel { font: 500 12px/1 var(--sans); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-solid); color: var(--fg); }
+.nd :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* panels */
+.nd .panel { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; min-width: 0;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04); }
+.nd .panel::before { content: ''; position: absolute; left: 18px; right: 18px; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--line-hi), transparent); }
+.nd h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--fg); display: flex; align-items: center; gap: 10px; }
+.nd h2 .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--dim); font-weight: 400; }
+.nd .note { color: var(--muted); font-size: 12px; margin: 6px 0 14px; line-height: 1.45; }
+
+/* KPI tiles */
+.nd .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.6rem), 1fr)); }
+.nd .kpi { position: relative; overflow: hidden; padding: 14px 14px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); min-height: 104px; display: grid; align-content: space-between; }
+.nd .kpi::after { content: ''; position: absolute; left: 0; top: 0; height: 2px; width: 100%; background: linear-gradient(90deg, transparent, var(--c), transparent); opacity: .9; }
+.nd .kpi .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nd .kpi .big { font-family: var(--mono); font-size: 32px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg); text-shadow: 0 0 22px color-mix(in srgb, var(--c) 50%, transparent); }
+.nd .kpi .lab { color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; margin-top: 10px; }
+.nd .kpi svg { width: 34px; height: 34px; flex: none; transform: rotate(-90deg); }
+.nd .kpi svg circle { fill: none; stroke-width: 4; }
+.nd .kpi svg .trk { stroke: rgba(255, 255, 255, .08); }
+.nd .kpi svg .arc { stroke: var(--c); stroke-linecap: round; stroke-dasharray: 94.25; stroke-dashoffset: 94.25; transition: stroke-dashoffset 1.2s var(--ease); filter: drop-shadow(0 0 4px var(--c)); }
+
+/* charts row */
+.nd .grid2 { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.nd .chart { min-height: 210px; position: relative; }
+.nd .chart text { font-family: var(--mono); }
+.nd .tip { position: absolute; pointer-events: none; background: #0b1626; border: 1px solid var(--line-hi); border-radius: 8px; padding: 6px 10px; font: 12px var(--mono); color: var(--fg); display: none; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+
+/* trends */
+.nd .tr-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.nd .radar { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255, 90, 110, .45); position: relative; flex: none;
+  background: radial-gradient(circle, rgba(255, 90, 110, .25) 0 3px, transparent 4px), repeating-radial-gradient(circle, transparent 0 7px, rgba(255, 90, 110, .18) 7px 8px); overflow: hidden; }
+.nd .radar::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(255, 90, 110, .55), transparent 25%); }
+.nd .tr-ticker { overflow: hidden; border-block: 1px solid var(--line); padding: 8px 0; margin-bottom: 14px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.nd .tr-track { display: inline-flex; gap: 26px; white-space: nowrap; font: 12px var(--mono); color: var(--muted); }
+.nd .tr-track b { color: var(--fg); font-weight: 500; }
+.nd .tr-track b em { font-style: normal; color: var(--green); margin-left: 6px; }
+.nd .tr-list { display: grid; gap: 9px; min-height: 140px; }
+.nd .tr-row { display: grid; grid-template-columns: minmax(0, 10rem) 1fr auto; gap: 12px; align-items: center; font-size: 12px; color: inherit; text-decoration: none; padding: 3px 6px; margin: 0 -6px; border-radius: 8px; transition: background .2s; }
+.nd .tr-row:hover { background: rgba(255, 255, 255, .04); }
+.nd .tr-term { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+.nd .tr-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.nd .tr-bar i { display: block; height: 100%; border-radius: 3px; transform-origin: left; box-shadow: 0 0 10px currentColor; }
+.nd .tr-chg { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 5.2rem; text-align: right; }
+.nd .tr-up { color: var(--green); } .nd .tr-down { color: var(--dim); }
+.nd .tr-sub { margin: 16px 0 8px; font: 10px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .22em; }
+.nd .tr-google { display: flex; flex-wrap: wrap; gap: 6px; }
+.nd .tr-g { font: 12px var(--sans); padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255, 196, 87, .35); color: var(--fg); text-decoration: none; background: rgba(255, 196, 87, .07); }
+.nd .tr-g span { color: var(--amber); margin-left: 6px; font-family: var(--mono); font-size: 10px; }
+
+/* Google Trends style table */
+.nd .gt-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.nd .gt-head h2 .live { margin-left: 6px; }
+.nd .gt-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; overflow-x: auto; }
+.nd .gt-tab { font: 600 12px var(--sans); letter-spacing: .04em; color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px 9px; cursor: pointer; white-space: nowrap; transition: color .2s, border-color .2s; }
+.nd .gt-tab b { font: 500 10px var(--mono); margin-left: 6px; padding: 2px 6px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--muted); }
+.nd .gt-tab[aria-selected=true] { color: var(--cyan); border-bottom-color: var(--cyan); }
+.nd .gt-tab[aria-selected=true] b { background: rgba(63,224,255,.15); color: var(--cyan); }
+.nd .gt-table { display: grid; min-height: 160px; }
+.nd .gt-row { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 2.4fr) 110px; gap: 14px; align-items: center;
+  padding: 12px 10px; border-top: 1px solid var(--line); text-align: left; font: inherit; color: inherit; background: none; border-left: 0; border-right: 0; border-bottom: 0; cursor: pointer; width: 100%; border-radius: 0; transition: background .2s; }
+.nd .gt-row:hover, .nd .gt-row:focus-visible { background: rgba(63,224,255,.05); }
+.nd .gt-hdr { cursor: default; padding-block: 8px; font: 500 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); border-top: 0; }
+.nd .gt-hdr:hover { background: none; }
+.nd .gt-term { min-width: 0; }
+.nd .gt-term b { display: block; font-size: 15px; font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .gt-term small { display: block; margin-top: 3px; font: 11px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .gt-vol b { display: block; font: 600 15px var(--mono); color: var(--fg); }
+.nd .gt-vol small { font: 11px var(--mono); }
+.nd .gt-start { font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+.nd .gt-active { display: inline-flex; align-items: center; gap: 6px; font: 600 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+.nd .gt-active i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+.nd .gt-active.off { color: var(--dim); } .nd .gt-active.off i { background: var(--dim); box-shadow: none; }
+.nd .gt-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.nd .gt-chips span { font-size: 11px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg); background: rgba(255,255,255,.03); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .gt-chips .more { color: var(--muted); border-style: dashed; }
+.nd .gt-spark svg { width: 110px; height: 34px; display: block; overflow: visible; }
+.nd .gt-empty { padding: 26px 10px; color: var(--muted); font-size: 13px; text-align: center; border-top: 1px solid var(--line); }
+@media (max-width: 760px) {
+  .nd .gt-hdr { display: none; }
+  .nd .gt-row { grid-template-columns: minmax(0, 1fr) 96px; grid-template-areas: "term spark" "vol start" "chips chips"; row-gap: 8px; }
+  .nd .gt-term { grid-area: term; } .nd .gt-spark { grid-area: spark; justify-self: end; } .nd .gt-vol { grid-area: vol; } .nd .gt-start { grid-area: start; justify-items: end; text-align: right; } .nd .gt-chips { grid-area: chips; }
+  .nd .gt-spark svg { width: 96px; }
+}
+/* keyword drawer */
+.nd .kw { width: 100%; max-width: 640px; background: #0b1626; border: 1px solid var(--line-hi); border-radius: 16px; padding: 20px; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 40px rgba(63,224,255,.12); display: grid; gap: 14px; }
+.nd .kw-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.nd .kw-eyebrow { font: 11px var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--cyan); }
+.nd .kw h3 { margin: 6px 0 0; font-size: 26px; font-weight: 700; color: var(--fg); overflow-wrap: anywhere; }
+.nd .kw-stats { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 14px; font: 12px var(--mono); color: var(--muted); }
+.nd .kw-stats b { color: var(--fg); font-weight: 600; }
+.nd .kw-chart svg { width: 100%; height: 120px; display: block; }
+.nd .kw-rel { display: flex; flex-wrap: wrap; gap: 6px; }
+.nd .kw-rel button { font: 12px var(--sans); padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.03); color: var(--fg); cursor: pointer; }
+.nd .kw-rel button:hover { border-color: var(--line-hi); }
+.nd .kw-sub { font: 10px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+.nd .kw-list { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
+.nd .kw-item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.02); }
+.nd .kw-item .t { font-size: 13.5px; font-weight: 600; color: var(--fg); line-height: 1.35; }
+.nd .kw-item .s { font: 11px var(--mono); color: var(--muted); margin-top: 3px; }
+.nd .kw-item .acts { display: flex; gap: 6px; }
+.nd .kw-explore { justify-self: start; }
+
+/* insight panels */
+.nd .sec-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.nd .brief { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: b; }
+.nd .brief li { counter-increment: b; }
+.nd .brief button, .nd .plan button, .nd .ri { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; background: rgba(255,255,255,.02); border: 1px solid var(--line); border-radius: 10px; transition: border-color .2s, background .2s, transform .2s var(--ease); }
+.nd .brief button:hover, .nd .plan button:hover, .nd .ri:hover { border-color: color-mix(in srgb, var(--c, var(--cyan)) 55%, transparent); background: rgba(255,255,255,.04); transform: translateX(3px); }
+.nd .brief button { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; padding: 10px 12px; }
+.nd .brief button::before { content: counter(b, decimal-leading-zero); font: 600 14px var(--mono); color: var(--c, var(--cyan)); text-shadow: 0 0 12px var(--c, var(--cyan)); padding-top: 1px; }
+.nd .bt { font-size: 13.5px; font-weight: 600; line-height: 1.35; color: var(--fg); }
+.nd .bs { font: 11px var(--mono); color: var(--muted); margin-top: 4px; }
+.nd .plan { display: grid; gap: 8px; }
+.nd .plan button { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: center; padding: 10px 12px; }
+.nd .pd { font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--c, var(--cyan)); line-height: 1.4; }
+.nd .pd small { display: block; color: var(--dim); font-weight: 400; letter-spacing: .04em; }
+.nd .events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12.5rem), 1fr)); margin-top: 12px; }
+.nd .ev { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: rgba(255,255,255,.02); display: grid; gap: 6px; }
+.nd .ev::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--c); box-shadow: 0 0 12px var(--c); }
+.nd .ev .days { font: 600 28px var(--mono); color: var(--fg); line-height: 1; text-shadow: 0 0 16px color-mix(in srgb, var(--c) 55%, transparent); }
+.nd .ev .days small { font-size: 11px; color: var(--muted); margin-left: 4px; letter-spacing: .1em; }
+.nd .ev .nm { font-weight: 600; font-size: 14px; }
+.nd .ev .wh { font: 11px var(--mono); color: var(--muted); }
+.nd .ev .chip { justify-self: start; margin-top: 4px; }
+.nd .radar-list { display: grid; gap: 8px; max-height: 26rem; overflow: auto; }
+.nd .ri { display: grid; gap: 6px; padding: 11px 12px; }
+.nd .ri .rt { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.nd .ri .rm { font: 11px var(--mono); color: var(--muted); }
+.nd .specs { display: flex; flex-wrap: wrap; gap: 5px; }
+.nd .specs span { font: 10px var(--mono); padding: 3px 7px; border-radius: 5px; border: 1px solid color-mix(in srgb, var(--c, var(--cyan)) 40%, transparent); color: var(--c, var(--cyan)); background: color-mix(in srgb, var(--c, var(--cyan)) 8%, transparent); }
+.nd .empty { color: var(--muted); font-size: 13px; padding: 18px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; }
+.nd abbr.gl { text-decoration: underline dotted color-mix(in srgb, var(--cyan) 70%, transparent); text-underline-offset: 3px; cursor: help; }
+.nd .ed-best { font: 12px var(--mono); color: var(--green); border: 1px solid rgba(70,240,164,.3); background: rgba(70,240,164,.06); border-radius: 8px; padding: 8px 10px; }
+
+/* search & feed tools */
+.nd .search { position: relative; margin-top: 14px; }
+.nd .search input { width: 100%; font: 14px var(--sans); color: var(--fg); background: rgba(10, 20, 36, .8); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px 13px 40px; outline: none; transition: border-color .2s, box-shadow .2s; }
+.nd .search input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(63, 224, 255, .15), 0 0 24px rgba(63, 224, 255, .15); }
+.nd .search-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-52%); color: var(--cyan); font-size: 18px; }
+.nd .chip .n { font: 10px var(--mono); opacity: .75; }
+.nd .hot-chip[aria-pressed=true] { --c: #ff8a3d; }
+.nd .story .hot { position: absolute; right: 10px; top: 10px; z-index: 1; font: 600 10px var(--mono); letter-spacing: .1em; padding: 5px 8px; border-radius: 6px; color: #1a0c00; background: #ff8a3d; box-shadow: 0 0 14px rgba(255, 138, 61, .6); }
+.nd .story .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.nd .story .tags span { font: 10px var(--mono); color: var(--c); opacity: .85; }
+.nd .story .pic .card-fallback { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 34px 14px 14px; font-weight: 700; font-size: 15px; line-height: 1.25; color: var(--fg);
+  background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--c) 35%, transparent), transparent 60%), linear-gradient(135deg, #0d1b30, #070d18); }
+.nd mark { background: rgba(63, 224, 255, .25); color: inherit; border-radius: 3px; padding: 0 1px; }
+.nd .more-wrap { display: flex; justify-content: center; margin-top: 18px; }
+/* post editor */
+.nd .ed { background: #0b1626; border: 1px solid var(--line-hi); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
+.nd .ed-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.nd .ed-lab { font: 10px var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--dim); margin-right: 4px; }
+.nd .ed-styles, .nd .ed-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.nd .ed textarea { width: 100%; resize: vertical; min-height: 160px; font: 13.5px/1.5 var(--sans); color: var(--fg); background: #070f1c; border: 1px solid var(--line); border-radius: 10px; padding: 12px; outline: none; }
+.nd .ed textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(63, 224, 255, .12); }
+.nd .ed-tags button { font: 11px var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
+.nd .ed-tags button[aria-pressed=true] { color: var(--bg); background: var(--cyan); border-color: transparent; }
+.nd .ed-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font: 11px var(--mono); color: var(--muted); }
+.nd .ed-foot .over { color: var(--red); }
+
+/* news */
+.nd .news-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.nd .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0 18px; }
+.nd .count { font: 11px var(--mono); color: var(--muted); margin-left: auto; letter-spacing: .08em; }
+.nd .stories { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); }
+.nd .story { --c: var(--cyan); position: relative; display: flex; flex-direction: column; text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 0; min-width: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; transition: transform .35s var(--ease), border-color .35s, box-shadow .35s var(--ease); }
+.nd .story:hover, .nd .story:focus-visible { transform: translateY(-4px); border-color: color-mix(in srgb, var(--c) 60%, transparent); box-shadow: 0 18px 40px rgba(0, 0, 0, .45), 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent), 0 0 30px color-mix(in srgb, var(--c) 18%, transparent); }
+.nd .story .pic { aspect-ratio: 16 / 9; background: var(--bg2); overflow: hidden; position: relative; }
+.nd .story .pic img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .8s var(--ease), filter .8s; filter: saturate(.9) brightness(.92); }
+.nd .story:hover .pic img { transform: scale(1.06); filter: saturate(1.05) brightness(1); }
+.nd .story .pic::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(6, 11, 20, .75)); }
+.nd .story .badge { position: absolute; left: 10px; top: 10px; z-index: 1; font: 600 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; padding: 5px 8px; border-radius: 6px; color: var(--bg); background: var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 60%, transparent); }
+.nd .story .txt { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 7px; }
+.nd .story .meta { font: 11px var(--mono); color: var(--muted); letter-spacing: .04em; }
+.nd .story .hd { font-size: 15px; font-weight: 600; line-height: 1.32; color: var(--fg); }
+.nd .story .sm { color: var(--muted); font-size: 12.5px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.nd .story .cta { margin-top: 4px; font: 600 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--c); opacity: 0; transform: translateY(4px); transition: all .3s var(--ease); }
+.nd .story:hover .cta, .nd .story:focus-visible .cta { opacity: 1; transform: none; }
+.nd .none { color: var(--muted); padding: 28px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r); }
+
+/* sources table */
+.nd .box { overflow: auto; max-height: 26rem; border-radius: 10px; }
+.nd table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.nd th { text-align: left; font: 500 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); padding: 8px 10px; position: sticky; top: 0; background: var(--panel-solid); }
+.nd td { padding: 9px 10px; border-top: 1px solid var(--line); vertical-align: top; color: var(--fg); }
+.nd td.num, .nd th.num { text-align: right; }
+.nd tbody tr:hover td { background: rgba(63, 224, 255, .04); }
+.nd .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.nd .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.nd .Full { color: var(--green); } .nd .Partial { color: var(--amber); }
+
+/* LinkedIn-style preview (kept light, like the real feed) */
+.nd .lp-back { position: fixed; inset: 0; background: rgba(3, 7, 14, .72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; z-index: 50;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.nd .lp-back[hidden] { display: none; }
+.nd .lp-wrap { width: 100%; max-width: 555px; display: grid; gap: 10px; }
+.nd .lp-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.nd .lp-bar .t { font: 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); margin-right: auto; }
+.nd .lp { background: #ffffff; color: #1d2226; border-radius: 10px; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, .6), 0 0 0 1px rgba(63, 224, 255, .25); }
+.nd .lp-head { display: flex; gap: 10px; padding: 12px 16px 0; align-items: flex-start; }
+.nd .lp-av { width: 48px; height: 48px; border-radius: 50%; background: #dfe6ee; color: #44515e; display: flex; align-items: center; justify-content: center; font-weight: 600; flex: none; font-size: 13px; }
+.nd .lp-name { font-weight: 600; font-size: 14px; line-height: 1.25; }
+.nd .lp-sub { color: #666; font-size: 12px; line-height: 1.35; }
+.nd .lp-follow { margin-left: auto; color: #666; font-size: 14px; }
+.nd .lp-text { padding: 10px 16px 8px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nd .lp-more { font: inherit; border: 0; background: none; color: #666; cursor: pointer; padding: 0; }
+.nd .lp-img { display: block; width: 100%; max-width: 100%; background: #eef1f4; }
+.nd .lp-link { border-top: 1px solid #e3e6e8; border-bottom: 1px solid #e3e6e8; padding: 10px 16px; background: #f3f6f8; }
+.nd .lp-link .h { font-weight: 600; font-size: 13px; }
+.nd .lp-link .d { color: #666; font-size: 12px; }
+.nd .lp-acts { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid #e3e6e8; margin: 0 12px; padding: 4px 0; }
+.nd .lp-acts span { text-align: center; padding: 10px 4px; color: #666; font-size: 13px; font-weight: 600; }
+.nd .lp-post { text-decoration: none; display: inline-flex; align-items: center; }
+.nd .lp-note { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .55; transition: opacity .4s; }
+
+/* motion */
+@media (prefers-reduced-motion: no-preference) {
+  .nd .scan { animation: ndScan 7s linear infinite; }
+  .nd .glow.a { animation: ndDrift 18s ease-in-out infinite alternate; }
+  .nd .glow.b { animation: ndDrift 24s ease-in-out infinite alternate-reverse; }
+  .nd .dot::after { animation: ndPulse 1.6s var(--ease) infinite; }
+  .nd .radar::after { animation: ndSpin 2.6s linear infinite; }
+  .nd .tr-track { animation: ndTicker 70s linear infinite; }
+  .nd .tr-ticker:hover .tr-track { animation-play-state: paused; }
+  .nd .tr-bar i { animation: ndGrow 1s var(--ease) both; }
+  .nd .tr-new { animation: ndFlash 1.6s var(--ease); }
+  .nd .rise { animation: ndRise .7s var(--ease) both; animation-delay: var(--d, 0ms); }
+  .nd .kpi::after { background-size: 200% 100%; animation: ndShimmer 4s linear infinite; }
+  .nd .lp-wrap, .nd .kw { animation: ndPop .35s var(--ease); }
+  .nd .gt-row.rise { animation: ndRise .6s var(--ease) both; animation-delay: var(--d, 0ms); }
+  .nd .gt-spark path.ln { stroke-dasharray: 400; animation: ndDraw 1.4s var(--ease) both; }
+}
+@keyframes ndScan { from { transform: translateY(0); } to { transform: translateY(2400px); } }
+@keyframes ndDrift { from { transform: translate(0, 0) scale(1); } to { transform: translate(6vw, 4vw) scale(1.15); } }
+@keyframes ndPulse { 0% { transform: scale(1); opacity: .8; } 100% { transform: scale(3.2); opacity: 0; } }
+@keyframes ndSpin { to { transform: rotate(360deg); } }
+@keyframes ndTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes ndGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ndFlash { 0%, 30% { background: rgba(70, 240, 164, .16); } 100% { background: transparent; } }
+@keyframes ndRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ndShimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes ndDraw { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+@keyframes ndPop { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+</style>
+
+<div class="nd app" id="app">
+  <div class="glow a" aria-hidden="true"></div><div class="glow b" aria-hidden="true"></div><div class="scan" aria-hidden="true"></div>
+  <div class="wrap">
+    <header class="hero" id="top">
+      <canvas id="wave" aria-hidden="true"></canvas>
+      <div class="hero-in">
+        <div>
+          <div class="eyebrow"><span class="live"><span class="dot"></span>Live</span> Signal room · Instrumentation · AI · Robotics · UAE</div>
+          <h1 id="title">News desk</h1>
+          <p class="take" id="take">&nbsp;</p>
+        </div>
+        <div class="status">
+          <div class="clock" id="clock">--:--:--<small>AST</small></div>
+          <button class="btn" id="refreshBtn" type="button">Refresh</button>
+          <span class="fetched" id="fetched"></span>
+        </div>
+      </div>
+    </header>
+
+    <div class="kpis">
+      <div class="kpi" style="--c:var(--cyan)"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="total">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab" id="labTotal">Stories today</div></div>
+      <div class="kpi" style="--c:var(--violet)"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="ai">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">AI</div></div>
+      <div class="kpi" style="--c:var(--cyan)"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="instr">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Instrumentation</div></div>
+      <div class="kpi" style="--c:var(--green)"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="robot">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Robotics</div></div>
+      <div class="kpi" style="--c:var(--amber)"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="uae">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">UAE</div></div>
+      <div class="kpi" style="--c:var(--magenta)"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="uaeai">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">UAE AI</div></div>
+      <div class="kpi" style="--c:#7fb8ff"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="week">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Stories, last 7 days</div></div>
+      <div class="kpi" style="--c:var(--green)"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="working">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Sources online</div></div>
+    </div>
+
+    <div class="grid2">
+      <section class="panel" id="brief">
+        <div class="sec-top">
+          <h2>Morning brief <span class="tag">5 MUST-READS</span></h2>
+          <button class="chip" id="listenBtn" type="button">▶ Listen</button>
+        </div>
+        <p class="note">Picked from the latest day: trending first, one per topic where possible.</p>
+        <ol class="brief" id="briefList"></ol>
+      </section>
+      <section class="panel" id="plan">
+        <div class="sec-top">
+          <h2>This week’s plan <span class="tag">MON–FRI · 9:00 AM AST</span></h2>
+          <button class="chip" id="planCopy" type="button">Copy plan</button>
+        </div>
+        <p class="note">One post a day, mixed across topics. Tap a day to preview and edit its post.</p>
+        <div class="plan" id="planList"></div>
+      </section>
+    </div>
+
+    <section class="panel" id="events">
+      <div class="sec-top"><h2>Events ahead <span class="tag">COUNTDOWN</span></h2></div>
+      <div class="events" id="eventList"></div>
+    </section>
+
+    <section class="panel gt" id="trending">
+      <div class="gt-head">
+        <div>
+          <h2>Trending now <span class="live"><span class="dot"></span>Live</span></h2>
+          <p class="note" id="trNote">Keywords rising in AI, instrumentation and robotics news, and Google Trends searches about tech. Sweeps every 15 minutes.</p>
+        </div>
+        <span class="radar" aria-hidden="true"></span>
+      </div>
+      <div class="gt-tabs" role="tablist" aria-label="Trend source">
+        <button class="gt-tab" id="tabNews" role="tab" type="button" aria-selected="true">Industry &amp; AI news <b id="nNews">0</b></button>
+        <button class="gt-tab" id="tabGoogle" role="tab" type="button" aria-selected="false">Google Trends · tech <b id="nGoogle">0</b></button>
+      </div>
+      <div class="tr-ticker" aria-hidden="true"><div class="tr-track" id="trTrack"></div></div>
+      <div class="gt-table dash-skeleton" id="trList" data-source="trends" role="table" aria-label="Trending keywords">
+      </div>
+    </section>
+
+    <div class="grid2">
+      <section class="panel" id="launches">
+        <h2>Product launch radar <span class="tag">NEW INSTRUMENTS &amp; KIT</span></h2>
+        <p class="note">Launches in instrumentation and robotics news, with the specs and certifications named in the story.</p>
+        <div class="radar-list" id="launchList"></div>
+      </section>
+      <section class="panel" id="deals">
+        <h2>UAE projects &amp; deals <span class="tag">CONTRACTS · MOUS · TENDERS</span></h2>
+        <p class="note">Contract awards, agreements and investments in UAE news. Useful for sales leads as well as posts.</p>
+        <div class="radar-list" id="dealList"></div>
+      </section>
+    </div>
+
+    <div class="grid2">
+      <section class="panel" id="hours">
+        <h2>Stories by hour <span class="tag">SIGNAL / H</span></h2>
+        <p class="note" id="hourNote">Latest day, Arabian Standard Time</p>
+        <div class="chart dash-skeleton" id="hourChart" data-source="byhour"></div>
+      </section>
+      <section class="panel" id="posted">
+        <h2>Posted to LinkedIn <span class="tag">TRACKER</span></h2>
+        <p class="note">Stories you marked as posted, saved on this device. Tap one to open it again.</p>
+        <div class="radar-list" id="postedList"></div>
+      </section>
+    </div>
+
+    <section id="news">
+      <div class="news-head">
+        <h2>News feed <span class="tag">TAP A CARD FOR THE LINKEDIN PREVIEW</span></h2>
+      </div>
+      <div class="search">
+        <span class="search-ico" aria-hidden="true">⌕</span>
+        <input id="q" type="search" placeholder="Search headlines, companies, hashtags…   ( / )" aria-label="Search the news" autocomplete="off">
+      </div>
+      <div class="filters">
+        <span id="topicChips" role="group" aria-label="Topic" style="display:flex;flex-wrap:wrap;gap:8px"></span>
+        <button class="chip hot-chip" id="hotBtn" type="button" aria-pressed="false">🔥 Trending only</button>
+      </div>
+      <div class="filters">
+        <select class="sel" id="dateSel" aria-label="Date"></select>
+        <select class="sel" id="srcSel" aria-label="Source"></select>
+        <select class="sel" id="sortSel" aria-label="Sort">
+          <option value="new">Newest first</option>
+          <option value="hot">Trending first</option>
+          <option value="old">Oldest first</option>
+        </select>
+        <button class="chip" id="resetBtn" type="button">Reset</button>
+        <span class="count" id="shown"></span>
+      </div>
+      <div class="stories" id="stories"></div>
+      <div class="more-wrap"><button class="chip" id="moreBtn" type="button" hidden>Load more stories</button></div>
+    </section>
+
+    <section class="panel" id="sources">
+      <h2>Sources online <span class="tag">FEEDS · PAGES</span></h2>
+      <p class="note" id="srcNote">Only sources the bot can read are listed.</p>
+      <div class="box">
+        <table id="srcTable" data-source="source_health" data-row-key="source">
+          <thead><tr><th data-field="status">Status</th><th data-field="source">Source</th><th data-field="group">Beat</th><th data-field="kind">Read as</th><th class="num" data-field="stories">Stories</th><th data-field="dates">Dates</th><th data-field="images">Images</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="nd"><div class="lp-back" id="kwBack" hidden>
+  <div class="kw" role="dialog" aria-modal="true" aria-labelledby="kwTitle">
+    <div class="kw-top">
+      <div>
+        <div class="kw-eyebrow" id="kwEyebrow"></div>
+        <h3 id="kwTitle"></h3>
+        <div class="kw-stats" id="kwStats"></div>
+      </div>
+      <button class="chip" id="kwClose" type="button">Close</button>
+    </div>
+    <div class="kw-chart" id="kwChart"></div>
+    <div class="kw-rel" id="kwRel"></div>
+    <div class="kw-sub">Stories about this keyword</div>
+    <div class="kw-list" id="kwList"></div>
+    <a class="chip kw-explore" id="kwExplore" href="#" target="_blank" rel="noopener">Explore on Google Trends ↗</a>
+  </div>
+</div></div>
+
+<div class="nd"><div class="lp-back" id="lpBack" hidden>
+  <div class="lp-wrap" role="dialog" aria-modal="true" aria-label="LinkedIn post preview">
+    <div class="lp-bar">
+      <span class="t">LinkedIn feed preview</span>
+      <a class="btn lp-post" id="lpPost" href="https://www.linkedin.com/feed/" target="_blank" rel="noopener">Post on LinkedIn</a>
+      <button class="chip" id="lpCopy" type="button">Copy post text</button>
+      <a class="chip" id="lpImg" href="#" download>Download image</a>
+      <button class="chip" id="lpMark" type="button">Mark as posted</button>
+      <a class="chip" id="lpOpen" href="#" target="_blank" rel="noopener">Open article</a>
+      <button class="chip" id="lpClose" type="button">Close</button>
+    </div>
+    <div class="lp">
+      <div class="lp-head">
+        <div class="lp-av" aria-hidden="true">You</div>
+        <div><div class="lp-name">Your name</div><div class="lp-sub">Your headline</div><div class="lp-sub">Now · Public</div></div>
+        <span class="lp-follow">···</span>
+      </div>
+      <div class="lp-text" id="lpText"></div>
+      <div id="lpMedia"></div>
+      <div class="lp-acts" aria-hidden="true"><span>Like</span><span>Comment</span><span>Repost</span><span>Send</span></div>
+    </div>
+    <div class="ed">
+      <div class="ed-row">
+        <span class="ed-lab">Post style</span>
+        <span class="ed-styles" id="edStyles" role="group" aria-label="Post style"></span>
+      </div>
+      <label class="ed-lab" for="edText">Edit the post</label>
+      <textarea id="edText" rows="9" spellcheck="true"></textarea>
+      <div class="ed-row">
+        <span class="ed-lab">Hashtags</span>
+        <span class="ed-tags" id="edTags"></span>
+      </div>
+      <div class="ed-best" id="edBest"></div>
+      <div class="ed-foot"><span id="edCount"></span><span id="edHint">LinkedIn shows about 210 characters before “see more”.</span></div>
+    </div>
+    <div class="lp-note" id="lpNote">Edit the post, then tap Post on LinkedIn.</div>
+  </div>
+</div></div>
+
+<script>
+dash.calc('summary', {
+  inputs: ['today_news', 'source_health'],
+  title: 'Headline counts',
+  description: 'Counts stories on the latest day and in the last 7 days, and the sources the bot can read.',
+  fn: (today_news, source_health) => {
+    const latest = today_news.reduce((m, r) => (r.date > m ? r.date : m), '');
+    const day = today_news.filter(r => r.date === latest);
+    return [{
+      latest: latest,
+      total: day.length,
+      ai: day.filter(r => r.topic === 'AI').length,
+      instr: day.filter(r => r.topic === 'Instrumentation').length,
+      robot: day.filter(r => r.topic === 'Robotics').length,
+      uae: day.filter(r => r.topic === 'UAE').length,
+      uaeai: day.filter(r => r.topic === 'UAE AI').length,
+      week: today_news.length,
+      working: source_health.length
+    }];
+  }
+});
+dash.calc('byhour', {
+  inputs: ['today_news'],
+  title: 'Stories per hour',
+  description: 'Counts the latest day\'s stories by publish hour.',
+  fn: (today_news) => {
+    const latest = today_news.reduce((m, r) => (r.date > m ? r.date : m), '');
+    const c = {};
+    today_news.filter(r => r.date === latest).forEach(r => { const h = Number(String(r.time).slice(0, 2)); c[h] = (c[h] || 0) + 1; });
+    return Array.from({ length: 24 }, (_, h) => ({ hour: String(h).padStart(2, '0'), count: c[h] || 0 }));
+  }
+});
+
+const fmt = d3.format(',');
+const t12 = (hhmm) => { const [h, m] = String(hhmm || '').split(':').map(Number); if (isNaN(h)) return hhmm || ''; return ((h % 12) || 12) + ':' + String(m || 0).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+const h12 = (hh, short) => { const h = Number(hh); return ((h % 12) || 12) + (short ? (h < 12 ? 'a' : 'p') : (h < 12 ? ' AM' : ' PM')); };
+const $ = (s) => document.querySelector(s);
+const MOTION = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOPICS = ['All', 'Instrumentation', 'AI', 'Robotics', 'UAE', 'UAE AI'];
+const TOPIC_COLOR = { All: '#3fe0ff', Instrumentation: '#3fe0ff', AI: '#a68bff', Robotics: '#46f0a4', UAE: '#ffc457', 'UAE AI': '#ff6fcf' };
+const state = { topic: 'All', date: 'all', src: 'all', sort: 'new', hot: false, q: '' };
+const dayName = (iso) => d3.utcFormat('%a %-d %b')(new Date(iso + 'T00:00:00Z'));
+
+/* live clock, Arabian Standard Time */
+const clockFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+function tick() { const c = $('#clock'); c.firstChild.nodeValue = clockFmt.format(new Date()).replace(/\s?(am|pm)$/i, (m) => ' ' + m.trim().toUpperCase()); }
+tick(); setInterval(tick, 1000);
+
+/* oscilloscope traces in the header */
+(function wave() {
+  const cv = $('#wave'), ctx = cv.getContext('2d');
+  const traces = [{ c: 'rgba(63,224,255,', a: 18, f: 1.6, s: .9 }, { c: 'rgba(166,139,255,', a: 12, f: 2.7, s: -.6 }, { c: 'rgba(70,240,164,', a: 8, f: 4.1, s: 1.4 }];
+  let t = 0, w = 0, h = 0;
+  const size = () => { const dpr = Math.min(2, window.devicePixelRatio || 1); w = cv.clientWidth; h = cv.clientHeight; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  const draw = () => {
+    ctx.clearRect(0, 0, w, h);
+    traces.forEach((tr, k) => {
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 4) {
+        const p = x / w;
+        const y = h * (0.62 + k * 0.08) + Math.sin(p * Math.PI * tr.f * 2 + t * tr.s) * tr.a * (0.4 + 0.6 * Math.sin(p * Math.PI))
+          + Math.sin(p * 37 + t * 2.3 * tr.s) * 2;
+        x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.strokeStyle = tr.c + '0.55)'; ctx.lineWidth = 1.6; ctx.shadowColor = tr.c + '0.9)'; ctx.shadowBlur = 10; ctx.stroke();
+    });
+    ctx.shadowBlur = 0;
+  };
+  const loop = () => { if (!document.hidden) { t += 0.018; draw(); } requestAnimationFrame(loop); };
+  size(); window.addEventListener('resize', size);
+  MOTION ? requestAnimationFrame(loop) : draw();
+})();
+
+/* numbers count up to their value */
+function countTo(el, value) {
+  const target = Number(value) || 0;
+  const from = Number(el.dataset.v || 0);
+  el.dataset.v = String(target);
+  if (!MOTION || from === target) { el.textContent = fmt(target); return; }
+  const t0 = performance.now(), dur = 1100;
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(Math.round(from + (target - from) * e));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function hourChart(el, rows) {
+  el.textContent = '';
+  const w = el.clientWidth || 320, h = 210;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('role', 'img').attr('aria-label', 'Stories by hour');
+  const tip = d3.select(el).append('div').attr('class', 'tip');
+  const defs = svg.append('defs');
+  const gr = defs.append('linearGradient').attr('id', 'barGrad').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+  gr.append('stop').attr('offset', '0%').style('stop-color', '#3fe0ff');
+  gr.append('stop').attr('offset', '100%').style('stop-color', '#a68bff').style('stop-opacity', .55);
+  const glow = defs.append('filter').attr('id', 'barGlow').attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+  glow.append('feGaussianBlur').attr('stdDeviation', 3).attr('result', 'b');
+  const mg = glow.append('feMerge'); mg.append('feMergeNode').attr('in', 'b'); mg.append('feMergeNode').attr('in', 'SourceGraphic');
+  const max = d3.max(rows, r => r.count) || 1;
+  const m = { t: 10, r: 6, b: 24, l: 30 };
+  const x = d3.scaleBand(rows.map(r => r.hour), [m.l, w - m.r]).padding(0.28);
+  const y = d3.scaleLinear([0, max], [h - m.b, m.t]).nice();
+  const ticks = y.ticks(Math.min(max, 4));
+  svg.selectAll('.g').data(ticks).join('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).style('stroke', 'rgba(120,190,255,.12)').style('stroke-dasharray', '2 4');
+  svg.selectAll('.gt').data(ticks).join('text').attr('x', m.l - 8).attr('y', d => y(d)).attr('text-anchor', 'end').attr('dominant-baseline', 'middle').style('fill', '#5d7290').style('font-size', '10px').text(d => fmt(d));
+  const show = (ev, r) => {
+    tip.style('display', 'block').text(h12(r.hour) + '  ·  ' + fmt(r.count) + (r.count === 1 ? ' story' : ' stories'));
+    const b = el.getBoundingClientRect();
+    tip.style('left', Math.min(ev.clientX - b.left + 12, w - 150) + 'px').style('top', Math.max(ev.clientY - b.top - 34, 0) + 'px');
+  };
+  const bars = svg.selectAll('rect.bar').data(rows).join('rect').attr('class', 'bar').attr('x', r => x(r.hour)).attr('width', x.bandwidth()).attr('rx', 3)
+    .style('fill', 'url(#barGrad)').attr('filter', 'url(#barGlow)').on('mousemove', show).on('mouseleave', () => tip.style('display', 'none'));
+  if (MOTION) {
+    bars.attr('y', y(0)).attr('height', 0).transition().duration(900).delay((_, i) => i * 35).ease(d3.easeCubicOut)
+      .attr('y', r => y(r.count)).attr('height', r => y(0) - y(r.count));
+  } else {
+    bars.attr('y', r => y(r.count)).attr('height', r => y(0) - y(r.count));
+  }
+  const every = Math.ceil(rows.length / Math.max(1, Math.floor((w - m.l) / 30)));
+  svg.selectAll('.xt').data(rows.filter((_, i) => i % every === 0)).join('text').attr('x', r => x(r.hour) + x.bandwidth() / 2).attr('y', h - 6).attr('text-anchor', 'middle').style('fill', '#5d7290').style('font-size', '10px').text(r => h12(r.hour, true));
+  svg.append('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'rgba(63,224,255,.45)');
+}
+
+function table(tbl, d, build) {
+  const body = tbl.querySelector('tbody');
+  body.textContent = '';
+  if (d.status !== 'ok') return;
+  d.data.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-key', r[tbl.getAttribute('data-row-key')]);
+    build(r).forEach(c => {
+      const td = document.createElement('td');
+      if (c.cls) td.className = c.cls;
+      if (c.node) td.appendChild(c.node); else td.textContent = c.text;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+const PAGE = 24;
+let shownCount = PAGE, newsKey = '', feedCtx = null;
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+function hotTags() {
+  const d = dash.data('trends');
+  if (d.status !== 'ok') return new Set();
+  return new Set(d.data.filter(r => r.kind === 'news' && r.change > 0).slice(0, 10).map(r => r.hashtag.toLowerCase()));
+}
+const isHot = (r, hot) => !!r.tags && r.tags.split(/\s+/).some(tg => hot.has(tg.toLowerCase()));
+function matches(r, hot) {
+  const q = state.q.trim().toLowerCase();
+  return (state.topic === 'All' || r.topic === state.topic) && (state.date === 'all' || r.date === state.date)
+    && (state.src === 'all' || hostOf(r.link) === state.src) && (!state.hot || isHot(r, hot))
+    && (!q || q.split(/\s+/).every(w => (r.title + ' ' + (r.summary || '') + ' ' + (r.tags || '') + ' ' + hostOf(r.link)).toLowerCase().includes(w)));
+}
+function highlight(el, text) {
+  const words = state.q.trim().split(/\s+/).filter(w => w.length > 1).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!words.length) { el.textContent = text; return; }
+  const rx = new RegExp('(' + words.join('|') + ')', 'ig');
+  text.split(rx).forEach((part, k) => { if (k % 2) { const m = document.createElement('mark'); m.textContent = part; el.appendChild(m); } else if (part) el.appendChild(document.createTextNode(part)); });
+}
+function setupFilters(news, latest) {
+  const chips = $('#topicChips'), sel = $('#dateSel'), src = $('#srcSel');
+  chips.textContent = '';
+  TOPICS.forEach(tp => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip';
+    b.append(tp + ' ');
+    const n = document.createElement('span'); n.className = 'n';
+    n.textContent = fmt(tp === 'All' ? news.data.length : news.data.filter(r => r.topic === tp).length);
+    b.appendChild(n);
+    b.style.setProperty('--c', TOPIC_COLOR[tp]);
+    b.setAttribute('aria-pressed', String(state.topic === tp));
+    b.addEventListener('click', () => { state.topic = tp; resetPage(); });
+    chips.appendChild(b);
+  });
+  const days = Array.from(new Set(news.data.map(r => r.date))).sort().reverse();
+  sel.textContent = '';
+  sel.appendChild(new Option('All dates', 'all'));
+  days.forEach(d => sel.appendChild(new Option((d === latest ? 'Today, ' : '') + dayName(d) + '  (' + news.data.filter(r => r.date === d).length + ')', d)));
+  sel.value = state.date;
+  const hosts = {};
+  news.data.forEach(r => { const h = hostOf(r.link); if (h) hosts[h] = (hosts[h] || 0) + 1; });
+  src.textContent = '';
+  src.appendChild(new Option('All sources', 'all'));
+  Object.keys(hosts).sort().forEach(h => src.appendChild(new Option(h + '  (' + hosts[h] + ')', h)));
+  src.value = hosts[state.src] ? state.src : 'all';
+}
+function resetPage() { shownCount = PAGE; drawFeed(); }
+function drawFeed() {
+  if (!feedCtx) return;
+  const { news } = feedCtx;
+  const box = $('#stories');
+  const hot = hotTags();
+  document.querySelectorAll('#topicChips .chip').forEach((b, k) => b.setAttribute('aria-pressed', String(state.topic === TOPICS[k])));
+  $('#hotBtn').setAttribute('aria-pressed', String(state.hot));
+  let rows = news.data.map((r, i) => ({ r, i, hot: isHot(r, hot) })).filter(x => matches(x.r, hot));
+  if (state.sort === 'old') rows.reverse();
+  if (state.sort === 'hot') rows.sort((a, b) => (b.hot - a.hot) || (a.i - b.i));
+  $('#shown').textContent = fmt(Math.min(shownCount, rows.length)) + ' OF ' + fmt(rows.length) + ' SHOWN · ' + fmt(news.data.length) + ' TOTAL';
+  box.textContent = '';
+  if (!rows.length) { const n = document.createElement('div'); n.className = 'none'; n.textContent = 'No stories match. Try fewer words or tap Reset.'; box.appendChild(n); $('#moreBtn').hidden = true; return; }
+  rows.slice(0, shownCount).forEach(({ r, i, hot: h }, k) => {
+    const a = document.createElement('button');
+    const fresh = k >= shownCount - PAGE;
+    a.type = 'button'; a.className = 'story' + (fresh ? ' rise' : '');
+    a.style.setProperty('--c', TOPIC_COLOR[r.topic] || TOPIC_COLOR.AI);
+    if (fresh) a.style.setProperty('--d', ((k % PAGE) * 40) + 'ms');
+    a.addEventListener('click', () => openPreview(r));
+    const pic = document.createElement('div'); pic.className = 'pic';
+    const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = r.topic;
+    pic.appendChild(badge);
+    if (h) { const hb = document.createElement('span'); hb.className = 'hot'; hb.textContent = '🔥 TRENDING'; pic.appendChild(hb); }
+    if (r.img) {
+      const im = document.createElement('img'); im.src = r.img; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
+      im.addEventListener('error', () => {   // picture could not load (offline, server down): show a headline card instead
+        const fb = document.createElement('div'); fb.className = 'card-fallback'; fb.textContent = r.title; im.replaceWith(fb);
+      }, { once: true });
+      pic.appendChild(im);
+    }
+    else { const fb = document.createElement('div'); fb.className = 'card-fallback'; fb.textContent = r.title; pic.appendChild(fb); }
+    const txt = document.createElement('div'); txt.className = 'txt';
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = dayName(r.date).toUpperCase() + '  ·  ' + t12(r.time) + '  ·  ' + hostOf(r.link);
+    const hd = document.createElement('div'); hd.className = 'hd'; highlight(hd, r.title);
+    hd.setAttribute('data-source', 'today_news'); hd.setAttribute('data-row', String(i)); hd.setAttribute('data-field', 'title');
+    txt.append(meta, hd);
+    if (r.summary) { const sm = document.createElement('div'); sm.className = 'sm'; highlight(sm, r.summary); glossify(sm); txt.appendChild(sm); }
+    if (r.tags) { const tg = document.createElement('div'); tg.className = 'tags'; r.tags.split(/\s+/).slice(0, 4).forEach(x => { const s = document.createElement('span'); s.textContent = x; tg.appendChild(s); }); txt.appendChild(tg); }
+    const cta = document.createElement('div'); cta.className = 'cta'; cta.textContent = 'Preview LinkedIn post →';
+    txt.appendChild(cta);
+    a.append(pic, txt); box.appendChild(a);
+  });
+  $('#moreBtn').hidden = rows.length <= shownCount;
+  $('#moreBtn').textContent = 'Load ' + fmt(Math.min(PAGE, rows.length - shownCount)) + ' more stories';
+}
+function renderNews(news, latest) {
+  const key = latest + '|' + news.data.length + '|' + (news.data[0] && news.data[0].link) + '|' + news.data.reduce((m, r) => (r.fetched > m ? r.fetched : m), '');   // redraw once the latest day is known
+  feedCtx = { news, latest };
+  if (key === newsKey) return;          // same data: keep the feed, its scroll position and the reader's filters
+  newsKey = key;
+  setupFilters(news, latest);
+  drawFeed();
+  drawInsights(news, latest);
+}
+$('#dateSel').addEventListener('change', (e) => { state.date = e.target.value; resetPage(); });
+$('#srcSel').addEventListener('change', (e) => { state.src = e.target.value; resetPage(); });
+$('#sortSel').addEventListener('change', (e) => { state.sort = e.target.value; resetPage(); });
+$('#hotBtn').addEventListener('click', () => { state.hot = !state.hot; resetPage(); });
+let qTimer = null;
+$('#q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value; resetPage(); }, 180); });
+$('#resetBtn').addEventListener('click', () => {
+  Object.assign(state, { topic: 'All', date: 'all', src: 'all', sort: 'new', hot: false, q: '' });
+  $('#q').value = ''; $('#dateSel').value = 'all'; $('#srcSel').value = 'all'; $('#sortSel').value = 'new'; resetPage();
+});
+$('#moreBtn').addEventListener('click', () => { shownCount += PAGE; drawFeed(); });
+document.addEventListener('keydown', (e) => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '');
+  if (e.key === '/' && !typing) { e.preventDefault(); $('#q').focus(); }
+});
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver((ents) => { if (ents.some(x => x.isIntersecting) && !$('#moreBtn').hidden) { shownCount += PAGE; drawFeed(); } }, { root: document, rootMargin: '0px 0px 400px 0px' }).observe($('#moreBtn'));
+}
+
+const TAGS = {
+  Instrumentation: '#Instrumentation #ProcessControl #IndustrialAutomation #Automation #Engineering',
+  AI: '#AI #ArtificialIntelligence #GenAI #Technology #Innovation',
+  Robotics: '#Robotics #Automation #AI #Industry40 #Engineering',
+  UAE: '#UAE #MiddleEast #Dubai #AbuDhabi #Business',
+  'UAE AI': '#UAE #AI #UAEAI #ArtificialIntelligence #MiddleEast'
+};
+const STYLES = {
+  'News brief': (r) => [r.title, r.summary, 'What does this mean for your plant or project? Share your view below.'],
+  'Engineer’s take': (r) => ['Here is a development every ' + (r.topic === 'Instrumentation' ? 'instrumentation and control engineer' : r.topic === 'Robotics' ? 'automation engineer' : 'engineer') + ' should look at:', r.title, r.summary,
+    'My take: the real test is how this performs in the field, not on the datasheet. Would you trust it on your site?'],
+  'Quick points': (r) => ['3 things to know: ' + r.title, '→ What: ' + (r.summary || r.title), '→ Who should care: ' + (r.topic === 'UAE' || r.topic === 'UAE AI' ? 'teams working in the UAE and the wider Gulf' : r.topic + ' professionals'),
+    '→ Next step: read the source and check how it fits your projects.']
+};
+let postCtx = null;
+const tagsOf = (r) => (r.tags || TAGS[r.topic] || TAGS.AI).split(/\s+/).filter(Boolean);
+function buildPost() {
+  const { r, style, tags } = postCtx;
+  return STYLES[style](r).filter(Boolean).concat(['Source: ' + r.link, tags.filter(x => x.on).map(x => x.t).join(' ')]).filter(Boolean).join('\n\n');
+}
+const postText = (r) => [r.title, r.summary, 'Source: ' + r.link, tagsOf(r).join(' ')].filter(Boolean).join('\n\n');
+function syncEditor(fromTemplate) {
+  const ta = $('#edText');
+  if (fromTemplate) ta.value = buildPost();
+  lpFull = ta.value;
+  showText(false);
+  const n = lpFull.length;
+  $('#edCount').textContent = fmt(n) + ' / 3,000 characters';
+  $('#edCount').className = n > 3000 ? 'over' : '';
+}
+function setupEditor(r) {
+  postCtx = { r, style: 'News brief', tags: tagsOf(r).map(x => ({ t: x, on: true })) };
+  const st = $('#edStyles'); st.textContent = '';
+  Object.keys(STYLES).forEach(s => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = s;
+    b.setAttribute('aria-pressed', String(s === postCtx.style));
+    b.addEventListener('click', () => { postCtx.style = s; st.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.textContent === s))); syncEditor(true); });
+    st.appendChild(b);
+  });
+  const tg = $('#edTags'); tg.textContent = '';
+  postCtx.tags.forEach(x => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = x.t; b.setAttribute('aria-pressed', 'true');
+    b.addEventListener('click', () => { x.on = !x.on; b.setAttribute('aria-pressed', String(x.on)); syncEditor(true); });
+    tg.appendChild(b);
+  });
+  $('#edBest').textContent = '⏱ Best time to post: ' + bestTime() + ' (typical peak for Gulf B2B audiences)';
+  syncEditor(true);
+}
+$('#edText').addEventListener('input', () => syncEditor(false));
+let lpFull = '';
+function showText(expanded) {
+  const box = $('#lpText');
+  box.textContent = '';
+  if (expanded || lpFull.length <= 210) { box.textContent = lpFull; return; }
+  box.append(document.createTextNode(lpFull.slice(0, 210).replace(/\s+\S*$/, '') + '… '));
+  const more = document.createElement('button');
+  more.type = 'button'; more.className = 'lp-more'; more.textContent = 'see more';
+  more.addEventListener('click', () => showText(true));
+  box.appendChild(more);
+}
+function openPreview(r) {
+  setupEditor(r);
+  const media = $('#lpMedia');
+  media.textContent = '';
+  let host = '';
+  try { host = new URL(r.link).hostname.replace(/^www\./, ''); } catch (e) {}
+  if (r.img) {
+    const im = document.createElement('img'); im.className = 'lp-img'; im.src = r.img; im.alt = '';
+    media.appendChild(im);
+  } else {
+    const card = document.createElement('div'); card.className = 'lp-link';
+    const h = document.createElement('div'); h.className = 'h'; h.textContent = r.title;
+    const d = document.createElement('div'); d.className = 'd'; d.textContent = host;
+    card.append(h, d); media.appendChild(card);
+  }
+  $('#lpNote').textContent = (r.trending ? 'Trending on Google right now: ' + r.trending + '. ' : '')
+    + 'Hashtags come from the story\u2019s companies and subjects. Edit the text, tap Post on LinkedIn (the text is copied and LinkedIn opens with it filled in; paste it if the box is empty), add the downloaded image, then tap Mark as posted.';
+  previewRow = r;
+  const img = $('#lpImg');
+  if (r.img && !/^data:/.test(r.img)) { img.hidden = false; img.href = r.img; img.setAttribute('download', (r.title || 'news').replace(/[^A-Za-z0-9]+/g, '-').slice(0, 60) + '.jpg'); }
+  else img.hidden = true;
+  markState();
+  $('#lpOpen').href = r.link;
+  $('#lpCopy').textContent = 'Copy post text';
+  $('#lpBack').hidden = false;
+  $('#lpClose').focus();
+}
+const closePreview = () => { $('#lpBack').hidden = true; };
+$('#lpClose').addEventListener('click', closePreview);
+$('#lpBack').addEventListener('click', (e) => { if (e.target.id === 'lpBack') closePreview(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePreview(); });
+$('#lpCopy').addEventListener('click', () => {
+  const done = () => { $('#lpCopy').textContent = 'Copied'; };
+  const fallback = () => {
+    showText(true);
+    const range = document.createRange(); range.selectNodeContents($('#lpText'));
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    $('#lpCopy').textContent = 'Text selected, press Ctrl+C';
+  };
+  try { navigator.clipboard.writeText(lpFull).then(done, fallback); } catch (e) { fallback(); }
+});
+
+const BEAT_COLOR = { AI: '#a68bff', Instrumentation: '#3fe0ff', Robotics: '#46f0a4', 'UAE AI': '#ff6fcf', UAE: '#ffc457', Tech: '#ffc457' };
+const parseList = (s) => { try { const v = JSON.parse(s || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+const ago = (ts) => {
+  if (!ts) return '';
+  const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60));
+  if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+  const hh = Math.round(m / 60);
+  return hh < 48 ? hh + (hh === 1 ? ' hour ago' : ' hours ago') : Math.round(hh / 24) + ' days ago';
+};
+let trTab = 'news', trSeen = null;
+function spark(series, color, w, h, area) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('aria-hidden', 'true');
+  if (!series.length) return svg;
+  const max = Math.max(1, ...series);
+  const x = (i) => (i / Math.max(1, series.length - 1)) * w, y = (v) => h - 3 - (v / max) * (h - 8);
+  const d = series.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  if (area) {
+    const id = 'g' + Math.random().toString(36).slice(2, 8);
+    const defs = document.createElementNS(ns, 'defs'), gr = document.createElementNS(ns, 'linearGradient');
+    gr.setAttribute('id', id); gr.setAttribute('x1', 0); gr.setAttribute('x2', 0); gr.setAttribute('y1', 0); gr.setAttribute('y2', 1);
+    [[0, .35], [1, 0]].forEach(([o, a]) => { const s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', o); s.setAttribute('style', `stop-color:${color};stop-opacity:${a}`); gr.appendChild(s); });
+    defs.appendChild(gr); svg.appendChild(defs);
+    const fill = document.createElementNS(ns, 'path'); fill.setAttribute('d', d + ` L${w} ${h} L0 ${h} Z`); fill.setAttribute('fill', `url(#${id})`); svg.appendChild(fill);
+  }
+  const ln = document.createElementNS(ns, 'path'); ln.setAttribute('d', d); ln.setAttribute('class', 'ln');
+  ln.setAttribute('fill', 'none'); ln.setAttribute('stroke', color); ln.setAttribute('stroke-width', '2'); ln.setAttribute('stroke-linecap', 'round'); ln.setAttribute('stroke-linejoin', 'round');
+  ln.setAttribute('style', `filter: drop-shadow(0 0 4px ${color})`);
+  svg.appendChild(ln);
+  const dot = document.createElementNS(ns, 'circle'); dot.setAttribute('cx', x(series.length - 1)); dot.setAttribute('cy', y(series[series.length - 1])); dot.setAttribute('r', 3); dot.setAttribute('fill', color);
+  svg.appendChild(dot);
+  return svg;
+}
+let trKey = '';
+function drawTrends(force) {
+  const d = dash.data('trends');
+  const list = $('#trList'), track = $('#trTrack');
+  if (d.status !== 'ok') { if (d.status !== 'loading') list.classList.remove('dash-skeleton'); return; }
+  list.classList.remove('dash-skeleton');
+  const k0 = trTab + '|' + (d.data[0] && d.data[0].updated) + '|' + d.data.length;
+  if (!force && k0 === trKey) return;
+  trKey = k0;
+  const news = d.data.filter(r => r.kind === 'news').slice(0, 12);
+  const goog = d.data.filter(r => r.kind === 'google');
+  $('#nNews').textContent = fmt(news.length); $('#nGoogle').textContent = fmt(goog.length);
+  $('#tabNews').setAttribute('aria-selected', String(trTab === 'news'));
+  $('#tabGoogle').setAttribute('aria-selected', String(trTab === 'google'));
+  const rows = trTab === 'news' ? news : goog;
+  const prev = trSeen; trSeen = new Set(news.map(r => r.term));
+  list.textContent = '';
+  const hdr = document.createElement('div'); hdr.className = 'gt-row gt-hdr'; hdr.setAttribute('role', 'row');
+  ['Trend', trTab === 'news' ? 'Stories (6 h)' : 'Search volume', 'Started', trTab === 'news' ? 'Trend breakdown' : 'In the news', trTab === 'news' ? 'Last 30 h' : ''].forEach(h => { const s = document.createElement('span'); s.textContent = h; hdr.appendChild(s); });
+  list.appendChild(hdr);
+  if (!rows.length) {
+    const e = document.createElement('div'); e.className = 'gt-empty';
+    e.textContent = trTab === 'news' ? 'Not enough fresh stories yet to call a trend.' : 'No tech or AI topic in Google’s top searches right now. Google lists only the top 10 searches per country.';
+    list.appendChild(e);
+  }
+  rows.forEach((r, k) => {
+    const color = BEAT_COLOR[r.beat] || BEAT_COLOR.AI;
+    const row = document.createElement('button');
+    row.type = 'button'; row.className = 'gt-row rise' + (trTab === 'news' && prev && !prev.has(r.term) ? ' tr-new' : '');
+    row.style.setProperty('--d', (k * 50) + 'ms'); row.setAttribute('role', 'row');
+    row.addEventListener('click', () => openKeyword(r));
+    const term = document.createElement('span'); term.className = 'gt-term';
+    const tb = document.createElement('b'); tb.textContent = trTab === 'news' ? r.hashtag : r.term;
+    const ts = document.createElement('small'); ts.textContent = trTab === 'news' ? r.beat + ' · ' + (r.headline || '') : (r.geo + ' · ' + (r.headline || ''));
+    term.append(tb, ts);
+    const vol = document.createElement('span'); vol.className = 'gt-vol';
+    const vb = document.createElement('b'); const vs = document.createElement('small');
+    if (trTab === 'news') {
+      vb.textContent = fmt(r.count);
+      vs.textContent = (r.change > 0 ? '▲ ' : '▼ ') + fmt(Math.abs(r.change)) + '%'; vs.className = r.change > 0 ? 'tr-up' : 'tr-down';
+    } else { vb.textContent = r.traffic || '—'; vs.textContent = 'searches'; vs.className = 'tr-down'; }
+    vol.append(vb, vs);
+    const start = document.createElement('span'); start.className = 'gt-start';
+    const sa = document.createElement('span'); sa.textContent = ago(r.started);
+    const act = document.createElement('span'); act.className = 'gt-active' + (r.active === 'Yes' ? '' : ' off');
+    act.appendChild(document.createElement('i')); act.append(r.active === 'Yes' ? 'Active' : 'Cooling');
+    start.append(sa, act);
+    const chips = document.createElement('span'); chips.className = 'gt-chips';
+    const items = trTab === 'news' ? parseList(r.related) : parseList(r.stories).map(s => s.source || s.title);
+    items.slice(0, 2).forEach(c => { const s = document.createElement('span'); s.textContent = c; chips.appendChild(s); });
+    if (items.length > 2) { const s = document.createElement('span'); s.className = 'more'; s.textContent = '+ ' + (items.length - 2) + ' more'; chips.appendChild(s); }
+    const sp = document.createElement('span'); sp.className = 'gt-spark';
+    if (trTab === 'news') sp.appendChild(spark(parseList(r.series), color, 110, 34, false));
+    row.append(term, vol, start, chips, sp);
+    list.appendChild(row);
+  });
+  track.textContent = '';
+  const tick = news.map(r => [r.hashtag, (r.change > 0 ? '▲' : '▼') + Math.abs(r.change) + '%']).concat(goog.map(r => [r.term, r.geo]));
+  [0, 1].forEach(() => tick.forEach(([w, x]) => { const b = document.createElement('b'); b.textContent = w; const e = document.createElement('em'); e.textContent = x; b.appendChild(e); track.appendChild(b); }));
+  const when = d.data[0] && d.data[0].updated;
+  if (when) $('#trNote').textContent = 'Keywords rising in AI, instrumentation and robotics news (last 6 hours vs the 24 before) and Google Trends searches about tech in 10 countries. Updated ' + t12(when.slice(11)) + ' · sweeps every 15 minutes. Tap a trend to see its stories.';
+}
+$('#tabNews').addEventListener('click', () => { trTab = 'news'; drawTrends(true); });
+$('#tabGoogle').addEventListener('click', () => { trTab = 'google'; drawTrends(true); });
+
+function storyRow(link) {
+  const news = dash.data('today_news');
+  return news.status === 'ok' ? news.data.find(r => r.link === link) : null;
+}
+function openKeyword(r) {
+  const isNews = r.kind === 'news';
+  const color = BEAT_COLOR[r.beat] || BEAT_COLOR.AI;
+  $('#kwEyebrow').textContent = isNews ? 'Rising in ' + r.beat + ' news' : 'Google Trends · ' + r.geo;
+  $('#kwTitle').textContent = isNews ? r.hashtag : r.term;
+  const stats = $('#kwStats'); stats.textContent = '';
+  const add = (label, val) => { const s = document.createElement('span'); const b = document.createElement('b'); b.textContent = val; s.append(label + ' ', b); stats.appendChild(s); };
+  if (isNews) { add('Stories, last 6 h', fmt(r.count)); add('Change', (r.change > 0 ? '+' : '') + fmt(r.change) + '%'); add('Started', ago(r.started)); }
+  else { add('Searches', r.traffic || '—'); add('Started', ago(r.started)); }
+  const ch = $('#kwChart'); ch.textContent = '';
+  if (isNews) ch.appendChild(spark(parseList(r.series), color, 600, 120, true));
+  ch.hidden = !isNews;
+  const rel = $('#kwRel'); rel.textContent = '';
+  if (isNews) parseList(r.related).forEach(tag => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = tag;
+    const other = dash.data('trends').data.find(x => x.kind === 'news' && x.hashtag === tag);
+    if (other) b.addEventListener('click', () => openKeyword(other)); else b.disabled = true;
+    rel.appendChild(b);
+  });
+  rel.hidden = !isNews;
+  const list = $('#kwList'); list.textContent = '';
+  const stories = parseList(r.stories);
+  if (!stories.length) { const p = document.createElement('div'); p.className = 'note'; p.textContent = 'No stories listed for this trend.'; list.appendChild(p); }
+  stories.forEach(s => {
+    const it = document.createElement('div'); it.className = 'kw-item';
+    const txt = document.createElement('div');
+    const tt = document.createElement('div'); tt.className = 't'; tt.textContent = s.title;
+    const ss = document.createElement('div'); ss.className = 's'; ss.textContent = [s.source, ago(s.ts)].filter(Boolean).join(' · ');
+    txt.append(tt, ss);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    const found = storyRow(s.link);
+    if (found) { const pb = document.createElement('button'); pb.type = 'button'; pb.className = 'chip'; pb.textContent = 'Preview post'; pb.addEventListener('click', () => { closeKeyword(); openPreview(found); }); acts.appendChild(pb); }
+    const a = document.createElement('a'); a.className = 'chip'; a.href = s.link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open ↗'; acts.appendChild(a);
+    it.append(txt, acts); list.appendChild(it);
+  });
+  $('#kwExplore').href = r.explore || ('https://trends.google.com/trends/explore?q=' + encodeURIComponent(r.term));
+  $('#kwBack').hidden = false;
+  $('#kwClose').focus();
+}
+const closeKeyword = () => { $('#kwBack').hidden = true; };
+$('#kwClose').addEventListener('click', closeKeyword);
+$('#kwBack').addEventListener('click', (e) => { if (e.target.id === 'kwBack') closeKeyword(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKeyword(); });
+setInterval(() => { try { dash.refresh('trends'); } catch (e) {} }, 15 * 60 * 1000);   // silent re-read; new data arrives from the 15-minute task
+
+$('#refreshBtn').addEventListener('click', () => {
+  dash.refresh('today_news');
+  dash.refresh('source_health');
+  dash.refresh('trends');
+  $('#refreshBtn').textContent = 'Syncing…';
+  setTimeout(() => { $('#refreshBtn').textContent = 'Refresh'; }, 2500);
+});
+
+/* ---------- insights: brief, plan, launches, deals, events, posted ---------- */
+const GLOSSARY = {
+  'SIL': 'Safety Integrity Level: how much risk reduction a safety function gives (IEC 61508/61511).',
+  'SIS': 'Safety Instrumented System: the sensors, logic and valves that bring a process to a safe state.',
+  'HART': 'Digital protocol carried on a 4-20 mA loop, used to configure and diagnose field instruments.',
+  'PROFINET': 'Industrial Ethernet standard for automation, widely used with Siemens systems.',
+  'Ethernet-APL': 'Advanced Physical Layer: two-wire Ethernet for field instruments, including hazardous areas.',
+  'APL': 'Ethernet Advanced Physical Layer: two-wire Ethernet down to field instruments.',
+  'ATEX': 'EU rules for equipment used in explosive atmospheres.',
+  'IECEx': 'International certification scheme for equipment in explosive atmospheres.',
+  'Coriolis': 'Flowmeter that measures mass flow directly from the twisting of vibrating tubes.',
+  'DCS': 'Distributed Control System: plant-wide process control, typical in oil, gas and chemicals.',
+  'SCADA': 'Supervisory control and data acquisition: remote monitoring of spread-out assets.',
+  'PLC': 'Programmable Logic Controller: rugged computer that runs machine and process logic.',
+  'OPC UA': 'Vendor-neutral standard for secure industrial data exchange.',
+  'IIoT': 'Industrial Internet of Things: connected sensors and machines in industry.',
+  'digital twin': 'A live software model of a plant or asset, fed by real measurements.',
+  'LNG': 'Liquefied natural gas.',
+  'NAMUR': 'User association of the process industry that writes widely used automation recommendations.',
+  'IEC 62443': 'The main cybersecurity standard series for industrial automation and control systems.',
+  'IEC 61511': 'Functional safety standard for safety instrumented systems in the process industry.',
+  'LLM': 'Large language model, the kind of AI behind chatbots such as ChatGPT and Claude.',
+  'MoU': 'Memorandum of understanding: a formal agreement to work together, usually before a contract.',
+  'EPC': 'Engineering, procurement and construction contractor that delivers a plant end to end.',
+  'FID': 'Final investment decision: the point where a project is approved and funded.'
+};
+const GL_RX = new RegExp('\\b(' + Object.keys(GLOSSARY).sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i');
+function glossify(el) {
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = []; while (walk.nextNode()) nodes.push(walk.currentNode);
+  nodes.forEach(node => {
+    const m = node.nodeValue.match(GL_RX);
+    if (!m || (node.parentNode && node.parentNode.tagName === 'ABBR')) return;
+    const key = Object.keys(GLOSSARY).find(k => k.toLowerCase() === m[1].toLowerCase());
+    const after = node.splitText(m.index); after.nodeValue = after.nodeValue.slice(m[1].length);
+    const ab = document.createElement('abbr'); ab.className = 'gl'; ab.title = GLOSSARY[key]; ab.textContent = m[1];
+    node.parentNode.insertBefore(ab, after);
+  });
+}
+const LAUNCH_RX = /\b(launch(es|ed)?|introduc(es|ed|ing)|unveil(s|ed)?|debut(s|ed)?|releases?|rolls? out|new (generation|series|range|line)|expands? (its )?(portfolio|range))\b/i;
+const NOISE_RX = /police|crime|arrest|court|jail|prison|murder|accident|crash|weather|rain|traffic fine|gang|fraud|celebrity|football|cricket|wedding|flights?|cancell|attack|missile|\bwar\b|evacuat|airstrike|blockade|killed|terror|hostage/i;
+const DEAL_RX = /\b(contracts?|awarded|awards? (a |the )?contract|wins? (a |the )?contract|tender|EPC|MoU|memorandum|agreement|signs?|signed|partnership|partners with|joint venture|JV|acquires?|acquisition|invest(s|ment)?|deal|FID|commission(s|ed)?|framework)\b/i;
+const SPEC_RX = [
+  [/\bSIL ?[1-4]\b/i, m => m[0].toUpperCase().replace(' ', '')], [/\bATEX\b/i, () => 'ATEX'], [/\bIECEx\b/i, () => 'IECEx'], [/\bIP6[5-9]K?\b/i, m => m[0].toUpperCase()],
+  [/\bHART\b/, () => 'HART'], [/\bPROFINET\b/i, () => 'PROFINET'], [/Ethernet[- ]APL|\bAPL\b/, () => 'Ethernet-APL'], [/\bModbus\b/i, () => 'Modbus'], [/\bIO-Link\b/i, () => 'IO-Link'],
+  [/4[–-]20 ?mA/i, () => '4-20 mA'], [/\bBluetooth\b/i, () => 'Bluetooth'], [/\bwireless\b/i, () => 'Wireless'], [/\bOPC ?UA\b/i, () => 'OPC UA'], [/\bAI\b/, () => 'AI'],
+  [/\bcoriolis\b/i, () => 'Coriolis'], [/\bultrasonic\b/i, () => 'Ultrasonic'], [/\bradar\b/i, () => 'Radar'], [/\bmagnetic flow|\bmagmeter\b/i, () => 'Electromagnetic'],
+  [/\btransmitters?\b/i, () => 'Transmitter'], [/\bflow ?meters?\b/i, () => 'Flowmeter'], [/\banaly[sz]ers?\b/i, () => 'Analyzer'], [/\bvalves?\b/i, () => 'Valve'], [/\bactuators?\b/i, () => 'Actuator'],
+  [/\bsensors?\b/i, () => 'Sensor'], [/\bcontrollers?\b|\bPLC\b/i, () => 'Controller'], [/\bdrives?\b|\bservo\b/i, () => 'Drive'], [/\bcobots?\b|\brobots?\b/i, () => 'Robot'], [/\bcamera|vision\b/i, () => 'Vision']
+];
+const specsOf = (text) => { const out = []; SPEC_RX.forEach(([rx, f]) => { const m = text.match(rx); if (m) { const v = f(m); if (!out.includes(v)) out.push(v); } }); return out; };
+const companiesOf = (r) => (r.tags || '').split(/\s+/).filter(x => /^#[A-Z]/.test(x) && !/^#(AI|UAE|ArtificialIntelligence|Instrumentation|ProcessAutomation|Robotics|Automation|MiddleEast|UAEAI)$/.test(x)).slice(0, 3);
+const EVENTS = [
+  { name: 'ADIPEC 2026', where: 'ADNEC, Abu Dhabi', start: '2026-11-02', end: '2026-11-05', c: '#ffc457', about: 'the world’s largest energy exhibition, hosted by ADNOC' },
+  { name: 'SPS 2026', where: 'Nuremberg, Germany', start: '2026-11-24', end: '2026-11-26', c: '#3fe0ff', about: 'the leading fair for smart and digital automation' },
+  { name: 'Hannover Messe 2027', where: 'Hannover, Germany', start: '2027-04-05', end: '2027-04-08', c: '#a68bff', about: 'the world’s biggest industrial technology fair' },
+  { name: 'Middle East Energy 2027', where: 'Dubai Exhibition Centre, Expo City', start: '2027-05-11', end: '2027-05-13', c: '#46f0a4', about: 'the region’s main power and energy event' },
+  { name: 'ACHEMA 2027', where: 'Frankfurt, Germany', start: '2027-06-14', end: '2027-06-18', c: '#ff6fcf', about: 'the triennial world fair for the process industries' }
+];
+const dubaiDate = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(d);   // YYYY-MM-DD
+function nextSlots(n) {   // next weekdays from tomorrow, Dubai time
+  const out = []; let d = new Date(Date.now() + 86400000);
+  while (out.length < n) { const day = new Date(dubaiDate(d) + 'T12:00:00Z').getUTCDay(); if (day >= 1 && day <= 5) out.push(dubaiDate(d)); d = new Date(d.getTime() + 86400000); }
+  return out;
+}
+function bestTime() {   // general LinkedIn guidance for a Gulf B2B audience: Tue-Thu, 8-10 AM local
+  let d = new Date();
+  for (let k = 0; k < 8; k++) {
+    const iso = dubaiDate(d), day = new Date(iso + 'T12:00:00Z').getUTCDay();
+    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', hour12: false }).format(d));
+    if (day >= 2 && day <= 4 && (k > 0 || hour < 9)) return dayName(iso) + ', 8:30–9:30 AM AST';
+    d = new Date(d.getTime() + 86400000);
+  }
+  return 'Tue–Thu, 8:30–9:30 AM AST';
+}
+function scored(news) {
+  const hot = hotTags(), n = news.data.length || 1;
+  return news.data.map((r, i) => { const launch = LAUNCH_RX.test(r.title) && (r.topic === 'Instrumentation' || r.topic === 'Robotics'); const noise = NOISE_RX.test(r.title); return { r, i, hot: isHot(r, hot), launch, noise, s: (isHot(r, hot) ? 4 : 0) + (r.image === 'Article' ? 1 : 0) + (launch ? 1 : 0) + 2 * (1 - i / n) - (noise ? 10 : 0) }; });
+}
+function item(r, extra, cls) {
+  const b = document.createElement('button'); b.type = 'button'; if (cls) b.className = cls;
+  b.style.setProperty('--c', TOPIC_COLOR[r.topic] || TOPIC_COLOR.AI);
+  b.addEventListener('click', () => openPreview(r));
+  const box = document.createElement('div');
+  const tt = document.createElement('div'); tt.className = cls === 'ri' ? 'rt' : 'bt'; tt.textContent = r.title;
+  const ss = document.createElement('div'); ss.className = cls === 'ri' ? 'rm' : 'bs'; ss.textContent = [r.topic, dayName(r.date) + ' ' + t12(r.time), hostOf(r.link)].join('  ·  ');
+  box.append(tt, ss); if (extra) box.appendChild(extra);
+  if (cls === 'ri') { b.append(tt, ss); if (extra) b.appendChild(extra); } else b.appendChild(box);
+  return b;
+}
+let briefRows = [], planRows = [];
+function drawInsights(news, latest) {
+  const all = scored(news).filter(x => !x.noise).sort((a, b) => b.s - a.s);
+  // morning brief: latest day, one per topic first
+  const day = all.filter(x => x.r.date === latest), used = new Set(), brief = [];
+  TOPICS.slice(1).forEach(tp => { const x = day.find(y => y.r.topic === tp && !used.has(y.i)); if (x && brief.length < 5) { brief.push(x); used.add(x.i); } });
+  day.forEach(x => { if (brief.length < 5 && !used.has(x.i)) { brief.push(x); used.add(x.i); } });
+  brief.sort((a, b) => b.s - a.s); briefRows = brief.map(x => x.r);
+  const bl = $('#briefList'); bl.textContent = '';
+  if (!brief.length) bl.innerHTML = '<li class="empty">No stories on the latest day yet.</li>';
+  brief.forEach(x => { const li = document.createElement('li'); li.appendChild(item(x.r)); bl.appendChild(li); });
+  // weekly plan: Mon Instrumentation launch, Tue AI, Wed UAE, Thu Robotics, Fri best remaining
+  const themes = [r => r.topic === 'Instrumentation', r => r.topic === 'AI', r => r.topic === 'UAE' || r.topic === 'UAE AI', r => r.topic === 'Robotics', () => true];
+  const slots = nextSlots(5), pu = new Set(); planRows = [];
+  const pl = $('#planList'); pl.textContent = '';
+  slots.forEach((iso, k) => {
+    const pick = all.find(x => !pu.has(x.i) && themes[k](x.r) && (k !== 0 || x.launch)) || all.find(x => !pu.has(x.i) && themes[k](x.r)) || all.find(x => !pu.has(x.i));
+    if (!pick) return;
+    pu.add(pick.i); planRows.push([iso, pick.r]);
+    const b = item(pick.r);
+    const dd = document.createElement('div'); dd.className = 'pd'; dd.textContent = d3.utcFormat('%a %-d')(new Date(iso + 'T00:00:00Z'));
+    const sm = document.createElement('small'); sm.textContent = '9:00 AM'; dd.appendChild(sm);
+    b.prepend(dd); pl.appendChild(b);
+  });
+  // launch radar
+  const ll = $('#launchList'); ll.textContent = '';
+  const launches = all.filter(x => x.launch && (x.r.topic === 'Instrumentation' || x.r.topic === 'Robotics')).sort((a, b) => a.i - b.i).slice(0, 12);
+  if (!launches.length) ll.innerHTML = '<div class="empty">No product launches in the current stories.</div>';
+  launches.forEach(x => {
+    const sp = document.createElement('div'); sp.className = 'specs';
+    specsOf(x.r.title + ' ' + (x.r.summary || '')).concat(companiesOf(x.r)).slice(0, 7).forEach(v => { const s = document.createElement('span'); s.textContent = v; sp.appendChild(s); });
+    const b = item(x.r, sp.childNodes.length ? sp : null, 'ri'); glossify(b); ll.appendChild(b);
+  });
+  // UAE deals
+  const dl = $('#dealList'); dl.textContent = '';
+  const deals = all.filter(x => (x.r.topic === 'UAE' || x.r.topic === 'UAE AI') && DEAL_RX.test(x.r.title)).sort((a, b) => a.i - b.i).slice(0, 12);
+  if (!deals.length) dl.innerHTML = '<div class="empty">No contracts or agreements in the current UAE stories.</div>';
+  deals.forEach(x => {
+    const sp = document.createElement('div'); sp.className = 'specs';
+    const kind = (x.r.title.match(DEAL_RX) || [''])[0];
+    [kind.toUpperCase()].concat(companiesOf(x.r)).filter(Boolean).forEach(v => { const s = document.createElement('span'); s.textContent = v; sp.appendChild(s); });
+    const b = item(x.r, sp, 'ri'); glossify(b); dl.appendChild(b);
+  });
+}
+function drawEvents() {
+  const box = $('#eventList'); box.textContent = '';
+  const today = new Date(dubaiDate(new Date()) + 'T00:00:00Z');
+  EVENTS.filter(e => new Date(e.end + 'T00:00:00Z') >= today).forEach(e => {
+    const s = new Date(e.start + 'T00:00:00Z'), days = Math.round((s - today) / 86400000);
+    const ev = document.createElement('div'); ev.className = 'ev'; ev.style.setProperty('--c', e.c);
+    const dd = document.createElement('div'); dd.className = 'days';
+    dd.textContent = days > 0 ? fmt(days) : 'NOW'; const sm = document.createElement('small'); sm.textContent = days > 0 ? (days === 1 ? 'DAY' : 'DAYS') : 'ON'; dd.appendChild(sm);
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = e.name;
+    const wh = document.createElement('div'); wh.className = 'wh'; wh.textContent = d3.utcFormat('%-d %b')(s) + ' – ' + d3.utcFormat('%-d %b %Y')(new Date(e.end + 'T00:00:00Z')) + ' · ' + e.where;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = 'Post idea';
+    b.addEventListener('click', () => openPreview({
+      title: (days > 0 ? fmt(days) + ' days to ' : 'Happening now: ') + e.name,
+      summary: e.name + ' (' + wh.textContent + ') is ' + e.about + '. Who is going? Tell me what you most want to see — I will share my notes from the floor.',
+      link: 'https://www.google.com/search?q=' + encodeURIComponent(e.name), topic: /Abu Dhabi|Dubai/.test(e.where) ? 'UAE' : 'Instrumentation', img: '',
+      tags: '#' + e.name.replace(/[^A-Za-z0-9]/g, '') + ' #Automation #Instrumentation #Events' + (/Abu Dhabi|Dubai/.test(e.where) ? ' #UAE' : '')
+    }));
+    ev.append(dd, nm, wh, b); box.appendChild(ev);
+  });
+}
+const POSTED_KEY = 'newsdesk.posted';
+const readPosted = () => { try { return JSON.parse(localStorage.getItem(POSTED_KEY) || '[]'); } catch (e) { return []; } };
+const writePosted = (list) => { try { localStorage.setItem(POSTED_KEY, JSON.stringify(list.slice(0, 200))); } catch (e) {} };
+let previewRow = null;
+function drawPosted() {
+  const box = $('#postedList'), rows = readPosted();
+  box.textContent = '';
+  if (!rows.length) { box.innerHTML = '<div class="empty">Nothing marked yet. After you post a story, tap Mark as posted in its preview.</div>'; return; }
+  rows.forEach(r => {
+    const a = document.createElement('a'); a.className = 'ri'; a.href = r.link; a.target = '_blank'; a.rel = 'noopener';
+    a.style.setProperty('--c', TOPIC_COLOR[r.topic] || TOPIC_COLOR.AI); a.style.textDecoration = 'none';
+    const tt = document.createElement('div'); tt.className = 'rt'; tt.textContent = r.title;
+    const ss = document.createElement('div'); ss.className = 'rm'; ss.textContent = ['Posted ' + ago(r.at), r.topic].filter(Boolean).join('  ·  ');
+    a.append(tt, ss); box.appendChild(a);
+  });
+}
+function markState() {
+  const done = previewRow && readPosted().some(x => x.link === previewRow.link);
+  $('#lpMark').textContent = done ? '✓ Posted' : 'Mark as posted';
+  $('#lpMark').setAttribute('aria-pressed', String(!!done));
+}
+$('#lpMark').addEventListener('click', () => {
+  if (!previewRow) return;
+  let list = readPosted();
+  if (list.some(x => x.link === previewRow.link)) list = list.filter(x => x.link !== previewRow.link);
+  else list.unshift({ title: previewRow.title, link: previewRow.link, topic: previewRow.topic, at: Math.floor(Date.now() / 1000) });
+  writePosted(list); markState(); drawPosted();
+});
+$('#lpPost').addEventListener('click', () => {
+  const text = lpFull;
+  $('#lpPost').href = 'https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(text);
+  try { navigator.clipboard.writeText(text).catch(() => {}); } catch (e) {}
+});
+drawPosted();
+$('#planCopy').addEventListener('click', () => {
+  const txt = planRows.map(([iso, r]) => d3.utcFormat('%A %-d %b')(new Date(iso + 'T00:00:00Z')) + ', 9:00 AM AST — ' + r.title + '\n' + r.link).join('\n\n');
+  const ok = () => { $('#planCopy').textContent = 'Copied'; };
+  try { navigator.clipboard.writeText(txt).then(ok, () => { $('#planCopy').textContent = 'Copy failed'; }); } catch (e) { $('#planCopy').textContent = 'Copy failed'; }
+});
+$('#listenBtn').addEventListener('click', () => {
+  const synth = window.speechSynthesis;
+  if (!synth) { $('#listenBtn').textContent = 'Not available'; return; }
+  if (synth.speaking) { synth.cancel(); $('#listenBtn').textContent = '▶ Listen'; return; }
+  const u = new SpeechSynthesisUtterance('Your morning brief. ' + briefRows.map((r, k) => 'Story ' + (k + 1) + ', ' + r.topic + '. ' + r.title + '.').join(' '));
+  u.rate = 1; u.onend = () => { $('#listenBtn').textContent = '▶ Listen'; };
+  try { synth.speak(u); $('#listenBtn').textContent = '■ Stop'; } catch (e) { $('#listenBtn').textContent = 'Not available'; }
+});
+drawEvents();
+
+let lastHourKey = '';
+dash.onData(() => {
+  const sum = dash.data('summary'), news = dash.data('today_news');
+  const total = sum.status === 'ok' ? (sum.data[0].total || 1) : 1;
+  document.querySelectorAll('.kpi').forEach(tile => {
+    const e = tile.querySelector('.big'), f = e.getAttribute('data-field');
+    e.classList.toggle('dash-skeleton', sum.status === 'loading');
+    if (sum.status !== 'ok') { e.textContent = '—'; return; }
+    const v = sum.data[0][f];
+    countTo(e, v);
+    const share = ['total', 'week', 'working'].includes(f) ? 1 : Math.min(1, v / total);
+    const arc = tile.querySelector('.arc'), len = 2 * Math.PI * 15;
+    arc.style.strokeDasharray = len;
+    requestAnimationFrame(() => { arc.style.strokeDashoffset = len * (1 - share); });   // fill up from empty
+  });
+  let latest = '';
+  if (sum.status === 'ok') {
+    const s = sum.data[0];
+    latest = s.latest;
+    $('#labTotal').textContent = 'Stories ' + dayName(latest);
+    $('#hourNote').textContent = dayName(latest) + ' · Arabian Standard Time';
+    $('#take').textContent = 'Live news for instrumentation, AI, robotics and the UAE. Pick a topic, tap a story, and see it as a LinkedIn post.';
+  }
+
+  const hr = dash.data('byhour'), hc = $('#hourChart');
+  if (hr.status === 'ok') {
+    hc.classList.remove('dash-skeleton');
+    const last = d3.max(hr.data.filter(r => r.count > 0), r => Number(r.hour)) ?? 0;
+    const rows = hr.data.filter(r => Number(r.hour) <= Math.max(last, 6));
+    const key = JSON.stringify(rows) + '|' + hc.clientWidth;
+    if (key !== lastHourKey) { lastHourKey = key; hourChart(hc, rows); }
+  }
+  const trBefore = trKey;
+  drawTrends();
+  if (trKey !== trBefore && feedCtx) { drawFeed(); drawInsights(feedCtx.news, feedCtx.latest); }
+
+  if (news.status === 'ok') {
+    renderNews(news, latest);
+    const f = news.data.reduce((m, r) => (r.fetched > m ? r.fetched : m), '');
+    if (f) { $('#fetched').textContent = 'FEED SYNC ' + f.slice(8, 10) + ' ' + d3.utcFormat('%b')(new Date(f.slice(0, 10) + 'T00:00:00Z')).toUpperCase() + ' · ' + t12(f.slice(11)); $('#srcNote').textContent = 'Checked ' + f.slice(0, 10) + '. Only sources the bot can read are listed.'; }
+  }
+  $('#refreshBtn').disabled = news.refreshing === true;
+
+  table($('#srcTable'), dash.data('source_health'), r => {
+    const p = document.createElement('span');
+    p.className = 'pill ' + r.status; p.textContent = r.status;
+    return [{ node: p }, { text: r.source }, { text: r.group }, { text: r.kind }, { text: fmt(r.stories), cls: 'num' }, { text: r.dates }, { text: r.images }];
+  });
+});
+</script>
+
+</div>
+</body>
+</html>

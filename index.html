@@ -74,6 +74,7 @@ html, body { background: var(--bg, #f6f7f9); }
 .nd .sync.fresh .arc { stroke: var(--green); } .nd .sync.fresh .core { fill: var(--green); } .nd .sync.fresh .sync-t { color: var(--green); }
 
 /* what the last sync brought */
+.nd .sync-new[hidden] { display: none; }
 .nd .sync-new { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--green); color: #fff; }
 .nd .sync-new.quiet { background: var(--panel-2); color: var(--muted); font-weight: 500; }
 .nd .sync-new b { font: 700 13px var(--mono); font-variant-numeric: tabular-nums; }
@@ -87,6 +88,13 @@ html, body { background: var(--bg, #f6f7f9); }
 @keyframes newPop { from { opacity: 0; transform: translateY(-6px) scale(.85); } to { opacity: 1; transform: none; } }
 @keyframes newOut { to { opacity: 0; transform: translateY(-4px) scale(.95); } }
 @keyframes newGlow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+
+/* stories brought by the latest feed update */
+.nd .upd { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.nd .upd b { font: 700 13px var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+.nd .upd .upd-new { color: var(--green); }
+.nd .upd-sep { color: var(--dim); }
+@media (prefers-reduced-motion: no-preference) { .nd .upd.pop { animation: newPop .5s cubic-bezier(.2, 1.4, .4, 1); } }
 
 /* controls */
 .nd .btn { font: 600 13px var(--sans); padding: 8px 14px; border-radius: 8px; cursor: pointer; color: #fff; background: var(--cyan); border: 0; }
@@ -357,6 +365,7 @@ html, body { background: var(--bg, #f6f7f9); }
           </div>
           <span class="sync-new" id="syncNew" role="status" aria-live="polite" hidden></span>
           <span class="fetched" id="fetched"></span>
+          <span class="upd" id="upd" title="Stories this news update brought, and stories on the dashboard"><b class="upd-new" id="updNew">+0</b> new <span class="upd-sep">·</span> <b id="updTotal">0</b> stories</span>
         </div>
       </div>
     </header>
@@ -1563,6 +1572,18 @@ dash.onData(() => {
   if (news.status === 'ok') {
     renderNews(news, latest);
     const f = news.data.reduce((m, r) => (r.fetched > m ? r.fetched : m), '');
+    if (f) {   // how many stories the latest feed update added, and how many are on the dashboard
+      const added = news.data.filter(r => (r.added || r.fetched) === f).length;
+      const key = f + '|' + added + '|' + news.data.length, box = $('#upd');
+      if (box.dataset.key !== key) {
+        box.dataset.key = key; box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+        const nb = $('#updNew'), tb = $('#updTotal'), t0 = performance.now(), dur = MOTION ? 900 : 0;
+        const step = (now) => { const k = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3);
+          nb.textContent = '+' + fmt(Math.round(added * e)); tb.textContent = fmt(Math.round(news.data.length * e)); if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+        box.title = added + ' stories arrived in the update at ' + t12(f.slice(11)) + '; ' + news.data.length + ' stories from the last 7 days are on the dashboard';
+      }
+    }
     if (f) { $('#fetched').textContent = 'FEED SYNC ' + f.slice(8, 10) + ' ' + d3.utcFormat('%b')(new Date(f.slice(0, 10) + 'T00:00:00Z')).toUpperCase() + ' · ' + t12(f.slice(11)); $('#srcNote').textContent = 'Checked ' + f.slice(0, 10) + '. Only sources the bot can read are listed.'; }
   }
 

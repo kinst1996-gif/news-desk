@@ -103,6 +103,7 @@ def make_row(x):
     return {"date": d.strftime("%Y-%m-%d"), "time": d.strftime("%H:%M"), "group": x["cat"], "topic": tp,
             "title": x["title"], "summary": desc[:200], "link": x["link"],
             "image": kind, "img": f"img/{uid}.jpg" if path.exists() else "", "fetched": FETCHED,
+            "added": (prev or {}).get("added") or (prev or {}).get("fetched") or FETCHED,   # first update that brought this story
             "tags": " ".join(tg), "trending": ", ".join(trd), "points": pts}
 
 

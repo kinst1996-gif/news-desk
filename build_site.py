@@ -39,6 +39,9 @@ for x in n.fetch_batch():
 
 MARKET = re.compile(r"\bmarket (size|share|report|forecast|outlook|analysis|to 20\d\d)|\bCAGR\b|market will (reach|grow)|market is (expected|projected)", re.I)
 items = [x for x in found.values() if not n.JUNK.search(x["title"]) and not MARKET.search(x["title"])]
+# UAE outlets also run world news: keep a UAE-feed story only when it is about the UAE or the Gulf
+UAE_TERMS = re.compile(r"UAE|Emirat|Dubai|Abu Dhabi|Sharjah|Ajman|Ras Al Khaimah|Fujairah|Umm Al Quwain|\bGCC\b|\bGulf\b|ADNOC|Masdar|DEWA|Etisalat|\be&\b|Mubadala|G42|\bDh\s?\d|\bAED\b|bin Rashid|bin Zayed|Sheikh|Museum of the Future|Expo City|Burj|Louvre Abu Dhabi|Etihad|Emirates airline|flydubai|RTA|Yas|Saadiyat", re.I)
+items = [x for x in items if x["cat"] != "UAE" or UAE_TERMS.search(x["title"] + " " + x.get("summary", ""))]
 items.sort(key=lambda x: -x["ts"])
 CAPS = {"Instrumentation": 100, "AI": 90, "Robotics": 50, "UAE": 80, "UAE AI": 70, "Smart Sensors": 60, "IoT": 60}   # balance the beats
 cnt, sel = {}, []

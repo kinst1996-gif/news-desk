@@ -66,4 +66,9 @@ window.dash = (function () {
   window.addEventListener('online', checkAll);               // back online: check at once
   return api;
 })();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+  // when a new version of the page is installed, reload once so it shows straight away
+  let reloaded = false; const hadController = !!navigator.serviceWorker.controller;   // not on the very first visit
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+}

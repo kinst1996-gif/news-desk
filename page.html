@@ -136,23 +136,53 @@ html, body { background: var(--bg, #f6f7f9); }
 .nd .kw-item .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .nd .kw-item .acts { display: flex; gap: 6px; }
 .nd .kw-explore { justify-self: start; }
-.nd .lp-wrap { width: 100%; max-width: 555px; display: grid; gap: 10px; }
+.nd .lp-wrap { width: 100%; max-width: 640px; display: grid; gap: 10px; justify-items: center; }
+.nd .lp-wrap > * { width: 100%; }
 .nd .lp-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .nd .lp-bar .t { font-size: 12px; color: #fff; margin-right: auto; }
 .nd .lp-post { text-decoration: none; display: inline-flex; align-items: center; }
-.nd .lp { background: #fff; color: #1d2226; border-radius: 10px; overflow: hidden; }
-.nd .lp-head { display: flex; gap: 10px; padding: 12px 16px 0; align-items: flex-start; }
-.nd .lp-av { width: 48px; height: 48px; border-radius: 50%; background: #dfe6ee; color: #44515e; display: flex; align-items: center; justify-content: center; font-weight: 600; flex: none; font-size: 13px; }
-.nd .lp-name { font-weight: 600; font-size: 14px; line-height: 1.25; }
-.nd .lp-sub { color: #666; font-size: 12px; line-height: 1.35; }
-.nd .lp-follow { margin-left: auto; color: #666; font-size: 14px; }
-.nd .lp-text { padding: 10px 16px 8px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
-.nd .lp-more { font: inherit; border: 0; background: none; color: #666; cursor: pointer; padding: 0; }
-.nd .lp-img { display: block; width: 100%; max-width: 100%; background: #eef1f4; }
-.nd .lp-link { border-top: 1px solid #e3e6e8; border-bottom: 1px solid #e3e6e8; padding: 10px 16px; background: #f3f6f8; }
-.nd .lp-link .h { font-weight: 600; font-size: 13px; } .nd .lp-link .d { color: #666; font-size: 12px; }
-.nd .lp-acts { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid #e3e6e8; margin: 0 12px; padding: 4px 0; }
-.nd .lp-acts span { text-align: center; padding: 10px 4px; color: #666; font-size: 13px; font-weight: 600; }
+/* LinkedIn post card: look and sizes adapted from linkedinpreview.com (MIT licence, github.com/gatteo/linkedinpreview.com) */
+.nd .lp-sizes { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: rgba(255,255,255,.14); width: auto !important; justify-self: center; }
+.nd .lp-size { font: 600 12px var(--sans); color: #e8eaee; background: none; border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.nd .lp-size[aria-pressed=true] { background: #fff; color: #191919; }
+.nd .lp { background: #fff; color: rgba(0,0,0,.9); border-radius: 8px; overflow: hidden; font-family: -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06); justify-self: center; transition: max-width .25s ease; max-width: 555px; }
+.nd .lp[data-size=tablet] { max-width: 480px; } .nd .lp[data-size=mobile] { max-width: 320px; }
+.nd .lp-head { display: flex; gap: 8px; padding: 12px 16px 0; align-items: flex-start; }
+.nd .lp-avw { position: relative; flex: none; width: 48px; height: 48px; }
+.nd .lp-av { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: block; background: #e7e2dc; }
+.nd .lp-in { position: absolute; right: -2px; bottom: -2px; width: 16px; height: 16px; border-radius: 50%; background: #0a66c2; color: #fff; font: 700 9px/16px Arial, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff; }
+.nd .lp-who { min-width: 0; flex: 1; }
+.nd .lp-name { font-weight: 600; font-size: 14px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .lp-sub { color: rgba(0,0,0,.6); font-size: 12px; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 3px; }
+.nd .lp-globe { width: 14px; height: 14px; color: rgba(0,0,0,.6); }
+.nd .lp-follow { margin-left: auto; color: rgba(0,0,0,.6); font-size: 18px; line-height: 20px; }
+.nd .lp-textw { position: relative; margin: 12px 16px 8px; }
+.nd .lp-text { font-size: 14px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nd .lp-text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.nd .lp-text .ht { color: #0a66c2; font-weight: 600; }
+.nd .lp-more { position: absolute; right: 0; bottom: 0; font: 14px/20px inherit; font-family: inherit; color: rgba(0,0,0,.6); background: #fff; border: 0; padding: 0 0 0 4px; cursor: pointer; }
+.nd .lp-more:hover { color: #0a66c2; text-decoration: underline; }
+.nd .lp-more.less { position: static; padding: 0; margin-top: 4px; }
+.nd .lp-img { display: block; width: 100%; max-height: 600px; object-fit: contain; background: #f3f2ef; }
+.nd .lp-link { border-top: 1px solid #e8e8e8; padding: 10px 16px; background: #eef3f8; }
+.nd .lp-link .h { font-weight: 600; font-size: 14px; } .nd .lp-link .d { color: rgba(0,0,0,.6); font-size: 12px; }
+.nd .lp-social { display: flex; align-items: center; padding: 8px 16px 0; min-height: 20px; }
+.nd .lp-rx { display: inline-flex; }
+.nd .lp-rx i { font-style: normal; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-right: -4px; box-shadow: 0 0 0 1.5px #fff; }
+.nd .rx-like { background: #378fe9; } .nd .rx-cel { background: #6dae4f; } .nd .rx-love { background: #df704d; }
+.nd .lp-acts { display: flex; justify-content: space-around; border-top: 1px solid #e8e8e8; margin: 8px 16px 0; padding: 4px 0; }
+.nd .lp-acts span { display: inline-flex; align-items: center; gap: 6px; padding: 10px 6px; color: rgba(0,0,0,.6); font-size: 13px; font-weight: 600; border-radius: 4px; }
+.nd .lp-acts svg { width: 20px; height: 20px; }
+.nd .lp[data-size=mobile] .lp-acts { justify-content: space-between; }
+.nd .lp[data-size=mobile] .lp-acts span { flex-direction: column; gap: 2px; font-size: 11px; padding: 6px 4px; }
+.nd .ed-me { gap: 6px; }
+.nd .ed-me input[type=text] { flex: 1 1 10rem; min-width: 0; font: 13px var(--sans); color: var(--fg); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
+.nd .ed-photo { cursor: pointer; }
+.nd .ed-fmt { display: inline-flex; gap: 3px; margin-left: auto; flex-wrap: wrap; }
+.nd .ed-fmt button { font: 13px var(--sans); min-width: 30px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.nd .ed-fmt button:hover { border-color: var(--line-hi); }
+.nd .ed-fmt-note { font-size: 11.5px; color: var(--dim); }
 .nd .lp-note { color: #e8eaee; font-size: 12px; line-height: 1.45; }
 .nd .ed { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
 .nd .ed-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -441,23 +471,55 @@ html, body { background: var(--bg, #f6f7f9); }
       <a class="chip" id="lpOpen" href="#" target="_blank" rel="noopener">Open article</a>
       <button class="chip" id="lpClose" type="button">Close</button>
     </div>
-    <div class="lp">
+    <div class="lp-sizes" role="group" aria-label="Preview size">
+      <button type="button" class="lp-size" data-size="mobile" aria-pressed="false">Phone</button>
+      <button type="button" class="lp-size" data-size="tablet" aria-pressed="false">Tablet</button>
+      <button type="button" class="lp-size" data-size="desktop" aria-pressed="true">Desktop</button>
+    </div>
+    <div class="lp" id="lpCard" data-size="desktop">
       <div class="lp-head">
-        <div class="lp-av" aria-hidden="true">You</div>
-        <div><div class="lp-name">Your name</div><div class="lp-sub">Your headline</div><div class="lp-sub">Now · Public</div></div>
-        <span class="lp-follow">···</span>
+        <span class="lp-avw"><img class="lp-av" id="lpAv" alt=""><span class="lp-in" aria-hidden="true">in</span></span>
+        <div class="lp-who">
+          <div class="lp-name" id="lpName">Your name</div>
+          <div class="lp-sub" id="lpHeadline">Your headline</div>
+          <div class="lp-sub">Now • <svg class="lp-globe" viewBox="0 0 16 16" aria-label="Public"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm4.9 6h-2a11 11 0 0 0-.8-3.7A5.5 5.5 0 0 1 12.9 7zM8 2.6c.6.8 1.2 2.4 1.4 4.4H6.6C6.8 5 7.4 3.4 8 2.6zM5.9 3.3A11 11 0 0 0 5.1 7h-2a5.5 5.5 0 0 1 2.8-3.7zM3.1 9h2a11 11 0 0 0 .8 3.7A5.5 5.5 0 0 1 3.1 9zM8 13.4C7.4 12.6 6.8 11 6.6 9h2.8c-.2 2-.8 3.6-1.4 4.4zm2.1-.7a11 11 0 0 0 .8-3.7h2a5.5 5.5 0 0 1-2.8 3.7z" fill="currentColor"/></svg></div>
+        </div>
+        <span class="lp-follow" aria-hidden="true">···</span>
       </div>
-      <div class="lp-text" id="lpText"></div>
+      <div class="lp-textw"><div class="lp-text" id="lpText"></div><button type="button" class="lp-more" id="lpMore" hidden>…more</button></div>
       <div id="lpMedia"></div>
-      <div class="lp-acts" aria-hidden="true"><span>Like</span><span>Comment</span><span>Repost</span><span>Send</span></div>
+      <div class="lp-social" aria-hidden="true"><span class="lp-rx"><i class="rx-like">👍</i><i class="rx-cel">👏</i><i class="rx-love">❤️</i></span></div>
+      <div class="lp-acts" aria-hidden="true">
+        <span><svg viewBox="0 0 24 24"><path d="M19.5 10h-5.3l.8-3.8c.3-1.4-.8-2.7-2.2-2.7L7 10v10h10.6c1 0 1.9-.7 2.1-1.7l1.3-6.3c.3-1-.5-2-1.5-2zM3 10h2.5v10H3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Like</span>
+        <span><svg viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Comment</span>
+        <span><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3M18 7v5M6 17v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Repost</span>
+        <span><svg viewBox="0 0 24 24"><path d="M21 3 3 10.5l7 2.5 2.5 7L21 3zM10 13l5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Send</span>
+      </div>
     </div>
     <div class="ed">
       <div class="ed-row">
         <span class="ed-lab">Post style</span>
         <span class="ed-styles" id="edStyles" role="group" aria-label="Post style"></span>
       </div>
-      <label class="ed-lab" for="edText">Edit the post</label>
+      <div class="ed-row ed-me">
+        <span class="ed-lab">You</span>
+        <input id="meName" type="text" placeholder="Your name" aria-label="Your name" maxlength="60">
+        <input id="meHeadline" type="text" placeholder="Your headline, e.g. Instrumentation Engineer" aria-label="Your headline" maxlength="120">
+        <label class="chip ed-photo">Photo<input id="mePhoto" type="file" accept="image/*" hidden></label>
+      </div>
+      <div class="ed-row">
+        <label class="ed-lab" for="edText">Edit the post</label>
+        <span class="ed-fmt" role="group" aria-label="Formatting">
+          <button type="button" data-fmt="bold" title="Bold (select text first)"><b>B</b></button>
+          <button type="button" data-fmt="italic" title="Italic"><i>I</i></button>
+          <button type="button" data-fmt="bolditalic" title="Bold italic"><b><i>BI</i></b></button>
+          <button type="button" data-fmt="underline" title="Underline"><u>U</u></button>
+          <button type="button" data-fmt="strike" title="Strikethrough"><s>S</s></button>
+          <button type="button" data-fmt="clear" title="Remove formatting">Clear</button>
+        </span>
+      </div>
       <textarea id="edText" rows="9" spellcheck="true"></textarea>
+      <div class="ed-fmt-note">Bold and italic use special Unicode letters, as LinkedIn has no formatting. Use them for a few key words only: screen readers and search read them poorly.</div>
       <div class="ed-row">
         <span class="ed-lab">Hashtags</span>
         <span class="ed-tags" id="edTags"></span>
@@ -831,17 +893,91 @@ function setupEditor(r) {
 }
 $('#edText').addEventListener('input', () => syncEditor(false));
 let lpFull = '';
+/* LinkedIn-style text: hashtags in blue, cut after 3 lines with "…more" (as in linkedinpreview.com, MIT) */
+let lpExpanded = false;
 function showText(expanded) {
-  const box = $('#lpText');
+  if (expanded !== undefined) lpExpanded = expanded;
+  const box = $('#lpText'), more = $('#lpMore');
   box.textContent = '';
-  if (expanded || lpFull.length <= 140) { box.textContent = lpFull; return; }
-  box.append(document.createTextNode(lpFull.slice(0, 140).replace(/\s+\S*$/, '') + '… '));
-  const more = document.createElement('button');
-  more.type = 'button'; more.className = 'lp-more'; more.textContent = 'see more';
-  more.addEventListener('click', () => showText(true));
-  box.appendChild(more);
+  lpFull.split(/(#[\wÀ-ɏ]+)/g).forEach((part, k) => {
+    if (k % 2) { const s = document.createElement('span'); s.className = 'ht'; s.textContent = part; box.appendChild(s); }
+    else if (part) box.appendChild(document.createTextNode(part));
+  });
+  box.classList.toggle('clamp', !lpExpanded);
+  requestAnimationFrame(() => {
+    const overflow = box.scrollHeight > box.clientHeight + 2;
+    more.hidden = lpExpanded ? false : !overflow;
+    more.textContent = lpExpanded ? '…less' : '…more';
+    more.classList.toggle('less', lpExpanded);
+    if (lpExpanded && !overflow && box.scrollHeight <= 62) more.hidden = true;
+  });
 }
+$('#lpMore').addEventListener('click', () => showText(!lpExpanded));
+document.querySelectorAll('.lp-size').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.lp-size').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  $('#lpCard').dataset.size = b.dataset.size;
+  try { localStorage.setItem('newsdesk.size', b.dataset.size); } catch (e) {}
+  setTimeout(() => showText(), 260);
+}));
+
+/* your name, headline and photo on the preview (saved on this device) */
+const DEFAULT_AV = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><path fill="#e7e2dc" d="M0 0h128v128H0z"/><circle cx="64" cy="52" r="26" fill="#9db3c8"/><path d="M18 128c4-26 22-40 46-40s42 14 46 40z" fill="#788fa5"/></svg>');
+const ME_KEY = 'newsdesk.me';
+const readMe = () => { try { return JSON.parse(localStorage.getItem(ME_KEY) || '{}'); } catch (e) { return {}; } };
+const saveMe = (me) => { try { localStorage.setItem(ME_KEY, JSON.stringify(me)); } catch (e) {} };
+function drawMe() {
+  const me = readMe();
+  $('#lpName').textContent = me.name || 'Your name';
+  $('#lpHeadline').textContent = me.headline || 'Your headline';
+  $('#lpAv').src = me.photo || DEFAULT_AV;
+  if (document.activeElement !== $('#meName')) $('#meName').value = me.name || '';
+  if (document.activeElement !== $('#meHeadline')) $('#meHeadline').value = me.headline || '';
+}
+$('#meName').addEventListener('input', (e) => { const me = readMe(); me.name = e.target.value; saveMe(me); drawMe(); });
+$('#meHeadline').addEventListener('input', (e) => { const me = readMe(); me.headline = e.target.value; saveMe(me); drawMe(); });
+$('#mePhoto').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const img = new Image(), url = URL.createObjectURL(f);
+  img.onload = () => {                                   // shrink to 160 px so it fits in the browser's storage
+    const c = document.createElement('canvas'); c.width = c.height = 160;
+    const s = Math.min(img.width, img.height), ctx = c.getContext('2d');
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 160, 160);
+    const me = readMe(); me.photo = c.toDataURL('image/jpeg', .85); saveMe(me); drawMe(); URL.revokeObjectURL(url);
+  };
+  img.src = url;
+});
+drawMe();
+try { const sz = localStorage.getItem('newsdesk.size'); if (sz) { const b = document.querySelector('.lp-size[data-size="' + sz + '"]'); if (b) b.click(); } } catch (e) {}
+
+/* Unicode bold / italic / underline / strike for the selected text (LinkedIn has no formatting) */
+const FMT = {
+  bold: { up: 0x1D5D4, low: 0x1D5EE, dig: 0x1D7EC }, italic: { up: 0x1D608, low: 0x1D622 }, bolditalic: { up: 0x1D63C, low: 0x1D656, dig: 0x1D7EC }
+};
+function plain(s) { return s.normalize('NFKC').replace(/[̶̲]/g, ''); }
+function styleText(s, kind) {
+  if (kind === 'clear') return plain(s);
+  if (kind === 'underline' || kind === 'strike') { const mark = kind === 'underline' ? '̲' : '̶'; return Array.from(plain(s)).map(ch => /\s/.test(ch) ? ch : ch + mark).join(''); }
+  const f = FMT[kind];
+  return Array.from(plain(s)).map(ch => {
+    const c = ch.codePointAt(0);
+    if (c >= 65 && c <= 90) return String.fromCodePoint(f.up + c - 65);
+    if (c >= 97 && c <= 122) return String.fromCodePoint(f.low + c - 97);
+    if (f.dig && c >= 48 && c <= 57) return String.fromCodePoint(f.dig + c - 48);
+    return ch;
+  }).join('');
+}
+document.querySelectorAll('.ed-fmt button').forEach(b => b.addEventListener('click', () => {
+  const ta = $('#edText'); let a = ta.selectionStart, z = ta.selectionEnd;
+  if (a === z) {                                         // nothing selected: use the word under the cursor
+    const v = ta.value; while (a > 0 && /\S/.test(v[a - 1])) a--; while (z < v.length && /\S/.test(v[z])) z++;
+    if (a === z) return;
+  }
+  const out = styleText(ta.value.slice(a, z), b.dataset.fmt);
+  ta.setRangeText(out, a, z, 'select'); ta.focus(); syncEditor(false);
+}));
+
 function openPreview(r) {
+  lpExpanded = false;
   setupEditor(r);
   const media = $('#lpMedia');
   media.textContent = '';

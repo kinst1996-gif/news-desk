@@ -1052,7 +1052,7 @@ function glossify(el) {
   });
 }
 const LAUNCH_RX = /\b(launch(es|ed)?|introduc(es|ed|ing)|unveil(s|ed)?|debut(s|ed)?|releases?|rolls? out|new (generation|series|range|line)|expands? (its )?(portfolio|range))\b/i;
-const NOISE_RX = /police|crime|arrest|court|jail|prison|murder|accident|crash|weather|rain|traffic fine|gang|fraud|celebrity|football|cricket|wedding|flights?|cancell|attack|missile|\bwar\b|evacuat|airstrike|blockade|killed|terror|hostage|dies|died|death|obituary|funeral/i;
+const NOISE_RX = /police|crime|arrest|court|jail|prison|murder|accident|crash|weather|rain|traffic fine|gang|fraud|celebrity|football|cricket|wedding|flights?|cancell|attack|missile|\bwar\b|evacuat|airstrike|blockade|killed|terror|hostage|\bdies\b|\bdied\b|\bdeath\b|obituary|funeral/i;
 const DEAL_RX = /\b(contracts?|awarded|awards? (a |the )?contract|wins? (a |the )?contract|tender|EPC|MoU|memorandum|agreement|signs?|signed|partnership|partners with|joint venture|JV|acquires?|acquisition|invest(s|ment)?|deal|FID|commission(s|ed)?|framework)\b/i;
 const SPEC_RX = [
   [/\bSIL ?[1-4]\b/i, m => m[0].toUpperCase().replace(' ', '')], [/\bATEX\b/i, () => 'ATEX'], [/\bIECEx\b/i, () => 'IECEx'], [/\bIP6[5-9]K?\b/i, m => m[0].toUpperCase()],

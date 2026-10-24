@@ -29,6 +29,11 @@ TOPICS = [(re.compile(p, re.I), t) for p, t in [
     (r"\bvalves?\b|actuator", "#Valves"),
     (r"\bpumps?\b", "#Pumps"),
     (r"calibrat", "#Calibration"),
+    (r"IO-Link", "#IOLink"),
+    (r"Ethernet-APL|\bAPL\b", "#EthernetAPL"),
+    (r"\bMEMS\b", "#MEMS"),
+    (r"LoRaWAN", "#LoRaWAN"),
+    (r"vibration (sensor|monitoring)", "#VibrationMonitoring"),
     (r"\bsensors?\b", "#Sensors"),
     (r"\bPLC\b|programmable logic", "#PLC"),
     (r"\bSCADA\b", "#SCADA"),
@@ -71,7 +76,8 @@ BASE = {"Instrumentation": ["#Instrumentation", "#ProcessAutomation"],
         "AI": ["#AI", "#ArtificialIntelligence"],
         "Robotics": ["#Robotics", "#Automation"],
         "UAE": ["#UAE", "#MiddleEast"],
-        "UAE AI": ["#UAE", "#AI", "#UAEAI"]}
+        "UAE AI": ["#UAE", "#AI", "#UAEAI"],
+        "Smart Sensors": ["#SmartSensors", "#IIoT"]}
 
 _trend_cache = {"at": 0, "data": []}
 

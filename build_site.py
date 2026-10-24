@@ -37,9 +37,10 @@ for x in n.fetch_batch():
     if x["ts"] >= cut:
         found[x["link"]] = x
 
-items = [x for x in found.values() if not n.JUNK.search(x["title"])]
+MARKET = re.compile(r"\bmarket (size|share|report|forecast|outlook|analysis|to 20\d\d)|\bCAGR\b|market will (reach|grow)|market is (expected|projected)", re.I)
+items = [x for x in found.values() if not n.JUNK.search(x["title"]) and not MARKET.search(x["title"])]
 items.sort(key=lambda x: -x["ts"])
-CAPS = {"Instrumentation": 100, "AI": 90, "Robotics": 50, "UAE": 80, "UAE AI": 70}   # balance the beats
+CAPS = {"Instrumentation": 100, "AI": 90, "Robotics": 50, "UAE": 80, "UAE AI": 70, "Smart Sensors": 60}   # balance the beats
 cnt, sel = {}, []
 for x in items:
     cnt[x["cat"]] = cnt.get(x["cat"], 0) + 1
@@ -49,11 +50,14 @@ items = sel
 
 ROBO = re.compile(r"robot|humanoid|cobot|drone|autonomous|exoskeleton", re.I)
 INST = re.compile(r"sensor|flow ?meter|transmitter|measurement|instrument|calibrat|PLC|SCADA|\bDCS\b|process control|analyzer|valve", re.I)
+SENSOR = re.compile(r"\bsensors?\b|\btransmitters?\b|IO-Link|\bMEMS\b|Ethernet-APL|\bsensing\b", re.I)
 UAE_AI = re.compile(r"(?<![A-Za-z])AI(?![A-Za-z])|artificial intelligence|machine learning|LLM|generative|chatbot|data cent|G42|MBZUAI|Falcon|Core42", re.I)
 
 
 def topic(x):
     t = x["title"] + " " + x.get("summary", "")
+    if x["cat"] == "Smart Sensors": return "Smart Sensors"
+    if x["cat"] in ("Instrumentation", "Robotics") and SENSOR.search(x["title"]): return "Smart Sensors"
     if x["cat"] == "Robotics": return "Robotics"
     if x["cat"] == "UAE AI": return "UAE AI"
     if x["cat"] == "UAE": return "UAE AI" if UAE_AI.search(t) else "UAE"

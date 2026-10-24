@@ -9,15 +9,17 @@ head = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>News Desk</title>
 <meta name="description" content="Live instrumentation, AI, robotics and UAE news, ready to post on LinkedIn.">
-<meta name="theme-color" content="#060b14">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-  :root { --font-anthropic-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; --font-anthropic-serif: Georgia, serif; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: dark; }
-  html, body { margin: 0; background: #060b14; min-height: 100%; }
+  :root { --font-anthropic-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; --font-anthropic-serif: Georgia, serif; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: light dark; }
+  html, body { margin: 0; background: #f6f7f9; min-height: 100%; }
+  @media (prefers-color-scheme: dark) { html, body { background: #0f1115; } }
   #dash-root { min-height: 100vh; }
-  .dash-skeleton:empty { min-height: 120px; border-radius: 10px; background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.07), rgba(255,255,255,.03)); background-size: 200% 100%; animation: sk 1.4s linear infinite; }
+  .dash-skeleton:empty { min-height: 120px; border-radius: 10px; background: linear-gradient(90deg, rgba(127,127,127,.08), rgba(127,127,127,.16), rgba(127,127,127,.08)); background-size: 200% 100%; animation: sk 1.4s linear infinite; }
   @keyframes sk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>

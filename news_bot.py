@@ -110,6 +110,12 @@ FEEDS = {
         "https://news.google.com/rss/search?hl=en-AE&gl=AE&ceid=AE:en&q=%28G42%20OR%20MBZUAI%20OR%20%22Technology%20Innovation%20Institute%22%20OR%20%22Falcon%20LLM%22%20OR%20Core42%20OR%20Khazna%20OR%20%22Stargate%20UAE%22%29%20when%3A3d",
         "https://news.google.com/rss/search?hl=en-AE&gl=AE&ceid=AE:en&q=%28Dubai%20OR%20%22Abu%20Dhabi%22%29%20AI%20when%3A2d",
     ],
+    "Smart Sensors": [
+        "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22smart%20sensor%22%20OR%20%22smart%20sensors%22%20%28industrial%20OR%20process%20OR%20factory%29%20when%3A3d",
+        "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%28%22IIoT%20sensor%22%20OR%20%22industrial%20IoT%20sensor%22%20OR%20%22wireless%20sensor%22%20OR%20%22IO-Link%22%20OR%20%22Ethernet-APL%22%29%20when%3A3d",
+        "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%28launches%20OR%20introduces%20OR%20unveils%29%20%28sensor%20OR%20transmitter%29%20%28pressure%20OR%20flow%20OR%20level%20OR%20temperature%20OR%20gas%20OR%20vibration%29%20when%3A3d",
+        "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%28%22condition%20monitoring%22%20OR%20%22predictive%20maintenance%22%29%20sensor%20when%3A3d",
+    ],
 }
 # Normal websites without RSS: the bot scrapes headline links from these pages.
 SITES = {

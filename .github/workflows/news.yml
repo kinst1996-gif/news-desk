@@ -24,4 +24,4 @@ jobs:
         run: python build_site.py
       - name: Publish
         env: { COMMIT_MSG: "news update" }
-        run: bash push.sh data img
+        run: bash push.sh data/today_news.json data/source_health.json img

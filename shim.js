@@ -2,26 +2,34 @@
    runs the page's calculations and tells the page when data changes. */
 window.dash = (function () {
   const KEEP_DAYS = 7;
+  const CHECK_EVERY = 5 * 60 * 1000;     // look for new data every 5 minutes while the page is open
   const FILES = { today_news: 'data/today_news.json', source_health: 'data/source_health.json', trends: 'data/trends.json' };
-  const store = {}, calcs = {}, listeners = [];
+  const store = {}, calcs = {}, listeners = [], lastText = {};
   const emit = () => listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
-  async function load(id) {
+  // quiet: a background check. It shows no "refreshing" state and only redraws when the file really changed.
+  async function load(id, quiet) {
     const prev = store[id];
-    store[id] = prev && prev.status === 'ok' ? Object.assign({}, prev, { refreshing: true }) : { status: 'loading', data: [] };
+    if (!quiet) store[id] = prev && prev.status === 'ok' ? Object.assign({}, prev, { refreshing: true }) : { status: 'loading', data: [] };
     try {
-      const res = await fetch(FILES[id] + '?v=' + Date.now(), { cache: 'no-store' });
+      // "no-cache" revalidates with the server: an unchanged file comes back as a tiny "not modified" reply.
+      const res = await fetch(FILES[id], { cache: 'no-cache' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      let data = await res.json();
+      const text = await res.text();
+      if (quiet && text === lastText[id] && prev && prev.status === 'ok') return;   // nothing new: no redraw
+      lastText[id] = text;
+      let data = JSON.parse(text);
       if (id === 'today_news' && Array.isArray(data)) {        // keep only the last 7 days (UAE time), whatever the file holds
         const cutoff = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date(Date.now() - KEEP_DAYS * 86400000));
         data = data.filter(r => !r.date || r.date >= cutoff);
       }
       store[id] = { status: 'ok', data, refreshing: false };
     } catch (e) {
+      if (quiet && prev) return;                                 // offline during a background check: keep what is shown
       store[id] = prev && prev.status === 'ok' ? Object.assign({}, prev, { refreshing: false }) : { status: 'error', data: [], message: String(e) };
     }
     emit();
   }
+  const checkAll = () => { if (!document.hidden) Object.keys(FILES).forEach(id => load(id, true)); };
   const api = {
     colors: ['#3fe0ff', '#a68bff', '#46f0a4', '#ffc457', '#ff6fcf', '#7fb8ff', '#ff8a3d', '#c9d6e8'],
     calc(id, def) { calcs[id] = def; },
@@ -40,8 +48,9 @@ window.dash = (function () {
   };
   let t = null;
   window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(emit, 200); });
-  setInterval(() => { api.refresh('today_news'); api.refresh('source_health'); }, 30 * 60 * 1000);   // news: every 30 minutes
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { api.refresh('trends'); api.refresh('today_news'); } });
+  setInterval(checkAll, CHECK_EVERY);
+  document.addEventListener('visibilitychange', checkAll);   // opening the app again checks at once
+  window.addEventListener('online', checkAll);               // back online: check at once
   return api;
 })();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

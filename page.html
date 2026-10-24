@@ -1010,7 +1010,6 @@ const closeKeyword = () => { $('#kwBack').hidden = true; };
 $('#kwClose').addEventListener('click', closeKeyword);
 $('#kwBack').addEventListener('click', (e) => { if (e.target.id === 'kwBack') closeKeyword(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKeyword(); });
-setInterval(() => { try { dash.refresh('trends'); } catch (e) {} }, 15 * 60 * 1000);   // silent re-read; new data arrives from the 15-minute task
 
 $('#refreshBtn').addEventListener('click', () => {
   dash.refresh('today_news');

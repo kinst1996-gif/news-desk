@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import news_bot as n
-import images, hashtags
+import images, hashtags, facts
 
 HERE = Path(__file__).parent
 DATA, IMG = HERE / "data", HERE / "img"
@@ -90,11 +90,17 @@ def make_row(x):
         except Exception:
             kind = "No"
     tg, trd = hashtags.tags_for(x["title"], desc, tp, TRENDS)
+    pts = (prev or {}).get("points")
+    if pts is None:
+        try:
+            pts = facts.key_facts(x["link"], x["title"], desc)
+        except Exception:
+            pts = []
     d = datetime.fromtimestamp(x["ts"]).astimezone()
     return {"date": d.strftime("%Y-%m-%d"), "time": d.strftime("%H:%M"), "group": x["cat"], "topic": tp,
             "title": x["title"], "summary": desc[:200], "link": x["link"],
             "image": kind, "img": f"img/{uid}.jpg" if path.exists() else "", "fetched": FETCHED,
-            "tags": " ".join(tg), "trending": ", ".join(trd)}
+            "tags": " ".join(tg), "trending": ", ".join(trd), "points": pts}
 
 
 with ThreadPoolExecutor(8) as pool:

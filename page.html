@@ -741,25 +741,42 @@ const QUESTION = {
 const firstSentence = (s) => { const m = String(s || '').match(/^(.{20,220}?[.!?])(\s|$)/); return m ? m[1] : String(s || ''); };
 const restOf = (s) => String(s || '').slice(firstSentence(s).length).trim();
 const numberIn = (s) => (String(s || '').match(/(\$|€|£|AED\s?)\d[\d,.]*\s?(billion|million|bn|m)?|\d[\d,.]*\s?(%|percent|billion|million|x\b|times|GW|MW|TWh)/i) || [''])[0].trim();
+const WHY = {
+  Instrumentation: 'For plant and instrument teams, this changes what you can measure, how reliably, and at what cost.',
+  'Smart Sensors': 'Smarter sensors mean more diagnostics at the edge and fewer surprises in the field.',
+  IoT: 'Connected devices only pay off when the data reaches the people who make the decisions.',
+  Robotics: 'Robots that cope with more variety move automation off the line and into real, messy work.',
+  AI: 'Tools like this change how fast teams can analyse, decide and build.',
+  UAE: 'If you work or do business in the UAE, this shapes the market around you.',
+  'UAE AI': 'It shows how quickly the UAE is turning AI plans into real projects.'
+};
+const factsOf = (r) => { const p = Array.isArray(r.points) && r.points.length ? r.points : [firstSentence(summaryOf(r)), restOf(summaryOf(r))]; return p.filter(Boolean).slice(0, 3); };
 const STYLES = {
   'News brief': (r) => {
-    const s = summaryOf(r), n = numberIn(r.title + ' ' + s);
+    const f = factsOf(r), n = numberIn(r.title + ' ' + f.join(' ') + ' ' + summaryOf(r));
     const lead = n && !cleanTitle(r).toLowerCase().startsWith(n.toLowerCase()) ? n + ': ' : '';   // lead with a striking number, unless the headline already does
-    return [lead + cleanTitle(r), firstSentence(s), restOf(s), QUESTION[r.topic] || QUESTION.AI];
+    return [lead + cleanTitle(r),
+      f.length ? 'What happened:\n' + f.map(x => '→ ' + x).join('\n') : '',
+      'Why it matters: ' + (WHY[r.topic] || WHY.AI),
+      QUESTION[r.topic] || QUESTION.AI];
   },
-  'Engineer’s take': (r) => [
-    'Most ' + (AUDIENCE[r.topic] || 'engineers') + ' will skim past this. They shouldn’t.',
-    cleanTitle(r),
-    firstSentence(summaryOf(r)),
-    /UAE/.test(r.topic) && r.topic !== 'UAE AI' ? 'My take: announcements are easy. The real signal is what gets built and delivered in the next 12 months.'
-      : 'My take: the launch is the easy part. The real test is what it does after 12 months in the field.',
-    QUESTION[r.topic] || QUESTION.AI],
-  'Quick points': (r) => [
-    'Why this matters for ' + (AUDIENCE[r.topic] || 'engineers') + ', in 3 points:',
-    '1. What: ' + cleanTitle(r),
-    '2. Detail: ' + (firstSentence(summaryOf(r)) || 'full story in the first comment.'),
-    '3. Next step: check where it fits your current projects before your next spec or budget review.',
-    'Save this for your next project review. What would you add as point 4?']
+  'Engineer’s take': (r) => {
+    const f = factsOf(r);
+    return ['Most ' + (AUDIENCE[r.topic] || 'engineers') + ' will skim past this. They shouldn’t.',
+      cleanTitle(r),
+      f.slice(0, 2).map(x => '→ ' + x).join('\n'),
+      /UAE/.test(r.topic) && r.topic !== 'UAE AI' ? 'My take: announcements are easy. The real signal is what gets built and delivered in the next 12 months.'
+        : 'My take: the launch is the easy part. The real test is what it does after 12 months in the field.',
+      QUESTION[r.topic] || QUESTION.AI];
+  },
+  'Quick points': (r) => {
+    const f = factsOf(r);
+    return ['Why this matters for ' + (AUDIENCE[r.topic] || 'engineers') + ', in 3 points:',
+      '1. What: ' + cleanTitle(r) + (f[0] ? '\n' + f[0] : ''),
+      '2. Key detail: ' + (f[1] || f[0] || 'full story in the first comment.'),
+      '3. Why it matters: ' + (WHY[r.topic] || WHY.AI),
+      'Save this for your next project review. What would you add as point 4?'];
+  }
 };
 let postCtx = null;
 const tagsOf = (r) => Array.from(new Set(((r.tags || '') + ' ' + (TAGS[r.topic] || TAGS.AI)).split(/\s+/).filter(Boolean))).slice(0, 4);   // 3-5 specific hashtags
@@ -785,7 +802,7 @@ function drawChecklist(text) {
   const tags = (text.match(/#[A-Za-z0-9_]+/g) || []).length;
   const checks = [
     ['Hook in the first 140 characters', first.length > 0 && first.length <= 140 && !/^(excited|proud|thrilled|happy to|in today'?s)/i.test(first)],
-    ['Short paragraphs (1–3 sentences)', body.every(p => (p.match(/[.!?](\s|$)/g) || []).length <= 3 && p.length <= 320)],
+    ['Short paragraphs (1–3 sentences)', body.every(p => p.split('\n').every(l => (l.match(/[.!?](\s|$)/g) || []).length <= 3 && l.length <= 320))],
     ['No link in the post (put it in the first comment)', !/https?:\/\//i.test(text)],
     ['3–5 hashtags at the end', tags >= 3 && tags <= 5],
     ['Ends with a question', /\?\s*$/.test(body[body.length - 1] || '')],

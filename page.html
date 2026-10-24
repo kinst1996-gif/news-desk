@@ -88,6 +88,13 @@ html, body { background: var(--bg, #f6f7f9); }
 .nd .kpi .big { font-size: 24px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .nd .kpi .lab { color: var(--muted); font-size: 12px; margin-top: 4px; }
 
+/* my LinkedIn post counters (saved on this device) */
+.nd .kpi.mine .big small { font-size: 14px; font-weight: 500; color: var(--dim); }
+.nd .kpi .goal { height: 4px; border-radius: 2px; background: var(--panel-2); margin-top: 8px; overflow: hidden; }
+.nd .kpi .goal i { display: block; height: 100%; width: 0; background: var(--c); border-radius: 2px; transition: width .6s ease; }
+.nd .kpi.mine.done .goal i { background: var(--green); }
+@media (prefers-reduced-motion: no-preference) { .nd .kpi.mine.bump { animation: newPop .5s cubic-bezier(.2, 1.4, .4, 1); } }
+
 /* charts */
 .nd .chart { min-height: 200px; position: relative; }
 .nd .chart text { font-family: var(--mono); }
@@ -340,6 +347,8 @@ html, body { background: var(--bg, #f6f7f9); }
       <div class="kpi" style="--c:#0d9488"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="iot">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">IoT</div></div>
       <div class="kpi" style="--c:#64748b"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="week">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Stories, last 7 days</div></div>
       <div class="kpi" style="--c:#059669"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="working">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Sources online</div></div>
+      <div class="kpi mine" style="--c:#0a66c2"><div class="row"><div class="big"><span id="postWeek">0</span><small> / 4</small></div></div><div class="lab">My posts this week</div><div class="goal"><i id="postGoal"></i></div></div>
+      <div class="kpi mine" style="--c:#0a66c2"><div class="row"><div class="big" id="postTotal">0</div></div><div class="lab">My posts in total</div></div>
     </div>
 
     <div class="grid2">
@@ -1427,6 +1436,18 @@ const POSTED_KEY = 'newsdesk.posted';
 const readPosted = () => { try { return JSON.parse(localStorage.getItem(POSTED_KEY) || '[]'); } catch (e) { return []; } };
 const writePosted = (list) => { try { localStorage.setItem(POSTED_KEY, JSON.stringify(list.slice(0, 200))); } catch (e) {} };
 let previewRow = null;
+function drawPostCounts(bump) {
+  const rows = readPosted();
+  const now = new Date(), dubai = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+  const monday = new Date(dubai); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));   // week starts Monday, UAE time
+  const weekStart = now.getTime() - (dubai.getTime() - monday.getTime());
+  const week = rows.filter(r => r.at * 1000 >= weekStart).length;
+  $('#postWeek').textContent = fmt(week); $('#postTotal').textContent = fmt(rows.length);
+  $('#postGoal').style.width = Math.min(100, week / 4 * 100) + '%';
+  const tiles = document.querySelectorAll('.kpi.mine');
+  tiles[0].classList.toggle('done', week >= 4);
+  if (bump) tiles.forEach(el => { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); });
+}
 function drawPosted() {
   const box = $('#postedList'), rows = readPosted();
   box.textContent = '';
@@ -1449,7 +1470,7 @@ $('#lpMark').addEventListener('click', () => {
   let list = readPosted();
   if (list.some(x => x.link === previewRow.link)) list = list.filter(x => x.link !== previewRow.link);
   else list.unshift({ title: previewRow.title, link: previewRow.link, topic: previewRow.topic, at: Math.floor(Date.now() / 1000) });
-  writePosted(list); markState(); drawPosted();
+  writePosted(list); markState(); drawPosted(); drawPostCounts(true);
 });
 $('#lpLink').addEventListener('click', () => {
   if (!previewRow) return;
@@ -1462,6 +1483,7 @@ $('#lpPost').addEventListener('click', () => {
   try { navigator.clipboard.writeText(text).catch(() => {}); } catch (e) {}
 });
 drawPosted();
+drawPostCounts();
 $('#planCopy').addEventListener('click', () => {
   const txt = planRows.map(([iso, r]) => d3.utcFormat('%A %-d %b')(new Date(iso + 'T00:00:00Z')) + ', 8:30 AM AST — ' + r.title + '\n' + r.link).join('\n\n');
   const ok = () => { $('#planCopy').textContent = 'Copied'; };
@@ -1481,7 +1503,7 @@ let lastHourKey = '';
 dash.onData(() => {
   const sum = dash.data('summary'), news = dash.data('today_news');
   const total = sum.status === 'ok' ? (sum.data[0].total || 1) : 1;
-  document.querySelectorAll('.kpi').forEach(tile => {
+  document.querySelectorAll('.kpi:not(.mine)').forEach(tile => {
     const e = tile.querySelector('.big'), f = e.getAttribute('data-field');
     e.classList.toggle('dash-skeleton', sum.status === 'loading');
     if (sum.status !== 'ok') { e.textContent = '—'; return; }

@@ -191,6 +191,9 @@ html, body { background: var(--bg, #f6f7f9); }
 .nd .ed-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 11.5px; color: var(--muted); }
 .nd .ed-foot .over { color: var(--red); }
 
+.nd .ed-check { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.nd .ed-check .ok { color: var(--green); } .nd .ed-check .no { color: var(--amber); }
+
 /* brief, plan, events, lists */
 .nd .brief { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: b; }
 .nd .brief li { counter-increment: b; }
@@ -329,10 +332,10 @@ html, body { background: var(--bg, #f6f7f9); }
       </section>
       <section class="panel" id="plan">
         <div class="sec-top">
-          <h2>This week’s plan <span class="tag">MON–FRI · 9:00 AM AST</span></h2>
+          <h2>This week’s plan <span class="tag">TUE–FRI · 8:30 AM AST</span></h2>
           <button class="chip" id="planCopy" type="button">Copy plan</button>
         </div>
-        <p class="note">One post a day, mixed across topics. Tap a day to preview and edit its post.</p>
+        <p class="note">Four posts a week at peak time, mixed across topics. Tap a day to preview and edit its post.</p>
         <div class="plan" id="planList"></div>
       </section>
     </div>
@@ -456,6 +459,7 @@ html, body { background: var(--bg, #f6f7f9); }
     <div class="lp-bar">
       <span class="t">LinkedIn feed preview</span>
       <a class="btn lp-post" id="lpPost" href="https://www.linkedin.com/feed/" target="_blank" rel="noopener">Post on LinkedIn</a>
+      <button class="chip" id="lpLink" type="button">Copy link for 1st comment</button>
       <button class="chip" id="lpCopy" type="button">Copy post text</button>
       <a class="chip" id="lpImg" href="#" download>Download image</a>
       <button class="chip" id="lpMark" type="button">Mark as posted</button>
@@ -483,8 +487,9 @@ html, body { background: var(--bg, #f6f7f9); }
         <span class="ed-lab">Hashtags</span>
         <span class="ed-tags" id="edTags"></span>
       </div>
+      <div class="ed-check" id="edCheck" aria-label="Post checklist"></div>
       <div class="ed-best" id="edBest"></div>
-      <div class="ed-foot"><span id="edCount"></span><span id="edHint">LinkedIn shows about 210 characters before “see more”.</span></div>
+      <div class="ed-foot"><span id="edCount"></span><span id="edHint">Phones show about 140 characters before “see more”.</span></div>
     </div>
     <div class="lp-note" id="lpNote">Edit the post, then tap Post on LinkedIn.</div>
   </div>
@@ -743,20 +748,51 @@ const TAGS = {
   'Smart Sensors': '#SmartSensors #IIoT #Instrumentation #Sensors #Industry40',
   IoT: '#IoT #IIoT #ConnectedDevices #Industry40 #Technology'
 };
+// LinkedIn 2026 practice: hook in the first ~140 characters, 1-3 sentence paragraphs, value in the post,
+// a specific question at the end, 3-5 hashtags, and the source link in the first comment (links in posts cut reach).
+const AUDIENCE = { Instrumentation: 'instrumentation and control engineers', 'Smart Sensors': 'instrumentation engineers', IoT: 'IIoT and automation teams',
+  Robotics: 'automation engineers', AI: 'engineering teams', UAE: 'teams working in the UAE', 'UAE AI': 'teams working in the UAE' };
+const cleanTitle = (r) => r.title.replace(/\s+[-|–]\s+[^-|–]+$/, '');
+const summaryOf = (r) => { const s = String(r.summary || '').trim(), h = cleanTitle(r).toLowerCase().slice(0, 40); return s && !s.toLowerCase().startsWith(h) ? s : ''; };
+const QUESTION = {
+  Instrumentation: 'Would this change how you specify or maintain instruments on your site?',
+  'Smart Sensors': 'Would you trust this sensor on a live process, or wait for field data?',
+  IoT: 'What is stopping more plants from connecting their field devices today?',
+  Robotics: 'Where would this pay back first in your operation?',
+  AI: 'Where would this save real hours in your team’s week?',
+  'UAE AI': 'What does this mean for AI projects in the UAE over the next year?',
+  UAE: 'How will this affect projects and business in the UAE?'
+};
+const firstSentence = (s) => { const m = String(s || '').match(/^(.{20,220}?[.!?])(\s|$)/); return m ? m[1] : String(s || ''); };
+const restOf = (s) => String(s || '').slice(firstSentence(s).length).trim();
+const numberIn = (s) => (String(s || '').match(/(\$|€|£|AED\s?)\d[\d,.]*\s?(billion|million|bn|m)?|\d[\d,.]*\s?(%|percent|billion|million|x\b|times|GW|MW|TWh)/i) || [''])[0].trim();
 const STYLES = {
-  'News brief': (r) => [r.title, r.summary, 'What does this mean for your plant or project? Share your view below.'],
-  'Engineer’s take': (r) => ['Here is a development every ' + (r.topic === 'Instrumentation' ? 'instrumentation and control engineer' : r.topic === 'Robotics' ? 'automation engineer' : 'engineer') + ' should look at:', r.title, r.summary,
-    'My take: the real test is how this performs in the field, not on the datasheet. Would you trust it on your site?'],
-  'Quick points': (r) => ['3 things to know: ' + r.title, '→ What: ' + (r.summary || r.title), '→ Who should care: ' + (r.topic === 'UAE' || r.topic === 'UAE AI' ? 'teams working in the UAE and the wider Gulf' : r.topic + ' professionals'),
-    '→ Next step: read the source and check how it fits your projects.']
+  'News brief': (r) => {
+    const s = summaryOf(r), n = numberIn(r.title + ' ' + s);
+    const lead = n && !cleanTitle(r).toLowerCase().startsWith(n.toLowerCase()) ? n + ': ' : '';   // lead with a striking number, unless the headline already does
+    return [lead + cleanTitle(r), firstSentence(s), restOf(s), QUESTION[r.topic] || QUESTION.AI];
+  },
+  'Engineer’s take': (r) => [
+    'Most ' + (AUDIENCE[r.topic] || 'engineers') + ' will skim past this. They shouldn’t.',
+    cleanTitle(r),
+    firstSentence(summaryOf(r)),
+    /UAE/.test(r.topic) && r.topic !== 'UAE AI' ? 'My take: announcements are easy. The real signal is what gets built and delivered in the next 12 months.'
+      : 'My take: the launch is the easy part. The real test is what it does after 12 months in the field.',
+    QUESTION[r.topic] || QUESTION.AI],
+  'Quick points': (r) => [
+    'Why this matters for ' + (AUDIENCE[r.topic] || 'engineers') + ', in 3 points:',
+    '1. What: ' + cleanTitle(r),
+    '2. Detail: ' + (firstSentence(summaryOf(r)) || 'full story in the first comment.'),
+    '3. Next step: check where it fits your current projects before your next spec or budget review.',
+    'Save this for your next project review. What would you add as point 4?']
 };
 let postCtx = null;
-const tagsOf = (r) => (r.tags || TAGS[r.topic] || TAGS.AI).split(/\s+/).filter(Boolean);
+const tagsOf = (r) => Array.from(new Set(((r.tags || '') + ' ' + (TAGS[r.topic] || TAGS.AI)).split(/\s+/).filter(Boolean))).slice(0, 4);   // 3-5 specific hashtags
 function buildPost() {
   const { r, style, tags } = postCtx;
-  return STYLES[style](r).filter(Boolean).concat(['Source: ' + r.link, tags.filter(x => x.on).map(x => x.t).join(' ')]).filter(Boolean).join('\n\n');
+  return STYLES[style](r).filter(Boolean).concat([tags.filter(x => x.on).map(x => x.t).join(' ')]).filter(Boolean).join('\n\n');
 }
-const postText = (r) => [r.title, r.summary, 'Source: ' + r.link, tagsOf(r).join(' ')].filter(Boolean).join('\n\n');
+const postText = (r) => [r.title, r.summary, tagsOf(r).join(' ')].filter(Boolean).join('\n\n');
 function syncEditor(fromTemplate) {
   const ta = $('#edText');
   if (fromTemplate) ta.value = buildPost();
@@ -765,6 +801,23 @@ function syncEditor(fromTemplate) {
   const n = lpFull.length;
   $('#edCount').textContent = fmt(n) + ' / 3,000 characters';
   $('#edCount').className = n > 3000 ? 'over' : '';
+  drawChecklist(lpFull);
+}
+function drawChecklist(text) {
+  const paras = text.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  const body = paras.filter(p => !/^(#\S+\s*)+$/.test(p));
+  const first = (body[0] || '');
+  const tags = (text.match(/#[A-Za-z0-9_]+/g) || []).length;
+  const checks = [
+    ['Hook in the first 140 characters', first.length > 0 && first.length <= 140 && !/^(excited|proud|thrilled|happy to|in today'?s)/i.test(first)],
+    ['Short paragraphs (1–3 sentences)', body.every(p => (p.match(/[.!?](\s|$)/g) || []).length <= 3 && p.length <= 320)],
+    ['No link in the post (put it in the first comment)', !/https?:\/\//i.test(text)],
+    ['3–5 hashtags at the end', tags >= 3 && tags <= 5],
+    ['Ends with a question', /\?\s*$/.test(body[body.length - 1] || '')],
+    ['Under 1,300 characters', text.length <= 1300]
+  ];
+  const box = $('#edCheck'); box.textContent = '';
+  checks.forEach(([label, ok]) => { const s = document.createElement('span'); s.className = ok ? 'ok' : 'no'; s.textContent = (ok ? '✓ ' : '✗ ') + label; box.appendChild(s); });
 }
 function setupEditor(r) {
   postCtx = { r, style: 'News brief', tags: tagsOf(r).map(x => ({ t: x, on: true })) };
@@ -781,7 +834,7 @@ function setupEditor(r) {
     b.addEventListener('click', () => { x.on = !x.on; b.setAttribute('aria-pressed', String(x.on)); syncEditor(true); });
     tg.appendChild(b);
   });
-  $('#edBest').textContent = '⏱ Best time to post: ' + bestTime() + ' (typical peak for Gulf B2B audiences)';
+  $('#edBest').textContent = '⏱ Best time to post: ' + bestTime() + ' (peak for B2B: Tue–Fri morning; avoid Monday mornings and weekends)';
   syncEditor(true);
 }
 $('#edText').addEventListener('input', () => syncEditor(false));
@@ -789,8 +842,8 @@ let lpFull = '';
 function showText(expanded) {
   const box = $('#lpText');
   box.textContent = '';
-  if (expanded || lpFull.length <= 210) { box.textContent = lpFull; return; }
-  box.append(document.createTextNode(lpFull.slice(0, 210).replace(/\s+\S*$/, '') + '… '));
+  if (expanded || lpFull.length <= 140) { box.textContent = lpFull; return; }
+  box.append(document.createTextNode(lpFull.slice(0, 140).replace(/\s+\S*$/, '') + '… '));
   const more = document.createElement('button');
   more.type = 'button'; more.className = 'lp-more'; more.textContent = 'see more';
   more.addEventListener('click', () => showText(true));
@@ -818,6 +871,7 @@ function openPreview(r) {
   if (r.img && !/^data:/.test(r.img)) { img.hidden = false; img.href = r.img; img.setAttribute('download', (r.title || 'news').replace(/[^A-Za-z0-9]+/g, '-').slice(0, 60) + '.jpg'); }
   else img.hidden = true;
   markState();
+  $('#lpLink').textContent = 'Copy link for 1st comment';
   $('#lpOpen').href = r.link;
   $('#lpCopy').textContent = 'Copy post text';
   $('#lpBack').hidden = false;
@@ -1077,7 +1131,7 @@ const EVENTS = [
 const dubaiDate = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(d);   // YYYY-MM-DD
 function nextSlots(n) {   // next weekdays from tomorrow, Dubai time
   const out = []; let d = new Date(Date.now() + 86400000);
-  while (out.length < n) { const day = new Date(dubaiDate(d) + 'T12:00:00Z').getUTCDay(); if (day >= 1 && day <= 5) out.push(dubaiDate(d)); d = new Date(d.getTime() + 86400000); }
+  while (out.length < n) { const day = new Date(dubaiDate(d) + 'T12:00:00Z').getUTCDay(); if (day >= 2 && day <= 5) out.push(dubaiDate(d)); d = new Date(d.getTime() + 86400000); }   // Tue-Fri: skip Monday mornings and weekends
   return out;
 }
 function bestTime() {   // general LinkedIn guidance for a Gulf B2B audience: Tue-Thu, 8-10 AM local
@@ -1085,10 +1139,10 @@ function bestTime() {   // general LinkedIn guidance for a Gulf B2B audience: Tu
   for (let k = 0; k < 8; k++) {
     const iso = dubaiDate(d), day = new Date(iso + 'T12:00:00Z').getUTCDay();
     const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', hour12: false }).format(d));
-    if (day >= 2 && day <= 4 && (k > 0 || hour < 9)) return dayName(iso) + ', 8:30–9:30 AM AST';
+    if (day >= 2 && day <= 5 && (k > 0 || hour < 9)) return dayName(iso) + ', 8:30–10:00 AM AST';
     d = new Date(d.getTime() + 86400000);
   }
-  return 'Tue–Thu, 8:30–9:30 AM AST';
+  return 'Tue–Fri, 8:30–10:00 AM AST';
 }
 function scored(news) {
   const hot = hotTags(), n = news.data.length || 1;
@@ -1116,9 +1170,9 @@ function drawInsights(news, latest) {
   const bl = $('#briefList'); bl.textContent = '';
   if (!brief.length) bl.innerHTML = '<li class="empty">No stories on the latest day yet.</li>';
   brief.forEach(x => { const li = document.createElement('li'); li.appendChild(item(x.r)); bl.appendChild(li); });
-  // weekly plan: Mon Instrumentation launch, Tue AI, Wed UAE, Thu Robotics, Fri best remaining
-  const themes = [r => r.topic === 'Instrumentation', r => r.topic === 'AI', r => r.topic === 'UAE' || r.topic === 'UAE AI', r => r.topic === 'Robotics', () => true];
-  const slots = nextSlots(5), pu = new Set(); planRows = [];
+  // weekly plan, 4 posts: Tue instrumentation/sensor launch, Wed AI, Thu UAE, Fri robotics/IoT
+  const themes = [r => r.topic === 'Instrumentation' || r.topic === 'Smart Sensors', r => r.topic === 'AI' || r.topic === 'UAE AI', r => r.topic === 'UAE' || r.topic === 'UAE AI', r => r.topic === 'Robotics' || r.topic === 'IoT'];
+  const slots = nextSlots(4), pu = new Set(); planRows = [];
   const pl = $('#planList'); pl.textContent = '';
   slots.forEach((iso, k) => {
     const pick = all.find(x => !pu.has(x.i) && themes[k](x.r) && (k !== 0 || x.launch)) || all.find(x => !pu.has(x.i) && themes[k](x.r)) || all.find(x => !pu.has(x.i));
@@ -1126,7 +1180,7 @@ function drawInsights(news, latest) {
     pu.add(pick.i); planRows.push([iso, pick.r]);
     const b = item(pick.r);
     const dd = document.createElement('div'); dd.className = 'pd'; dd.textContent = d3.utcFormat('%a %-d')(new Date(iso + 'T00:00:00Z'));
-    const sm = document.createElement('small'); sm.textContent = '9:00 AM'; dd.appendChild(sm);
+    const sm = document.createElement('small'); sm.textContent = '8:30 AM'; dd.appendChild(sm);
     b.prepend(dd); pl.appendChild(b);
   });
   // smart sensor radar: technologies mentioned across sensor stories
@@ -1232,6 +1286,11 @@ $('#lpMark').addEventListener('click', () => {
   else list.unshift({ title: previewRow.title, link: previewRow.link, topic: previewRow.topic, at: Math.floor(Date.now() / 1000) });
   writePosted(list); markState(); drawPosted();
 });
+$('#lpLink').addEventListener('click', () => {
+  if (!previewRow) return;
+  const ok = () => { $('#lpLink').textContent = 'Link copied: paste it as your first comment'; };
+  try { navigator.clipboard.writeText(previewRow.link).then(ok, () => { $('#lpLink').textContent = previewRow.link; }); } catch (e) { $('#lpLink').textContent = previewRow.link; }
+});
 $('#lpPost').addEventListener('click', () => {
   const text = lpFull;
   $('#lpPost').href = 'https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(text);
@@ -1239,7 +1298,7 @@ $('#lpPost').addEventListener('click', () => {
 });
 drawPosted();
 $('#planCopy').addEventListener('click', () => {
-  const txt = planRows.map(([iso, r]) => d3.utcFormat('%A %-d %b')(new Date(iso + 'T00:00:00Z')) + ', 9:00 AM AST — ' + r.title + '\n' + r.link).join('\n\n');
+  const txt = planRows.map(([iso, r]) => d3.utcFormat('%A %-d %b')(new Date(iso + 'T00:00:00Z')) + ', 8:30 AM AST — ' + r.title + '\n' + r.link).join('\n\n');
   const ok = () => { $('#planCopy').textContent = 'Copied'; };
   try { navigator.clipboard.writeText(txt).then(ok, () => { $('#planCopy').textContent = 'Copy failed'; }); } catch (e) { $('#planCopy').textContent = 'Copy failed'; }
 });

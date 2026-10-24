@@ -257,7 +257,7 @@ html, body { background: var(--bg, #f6f7f9); }
     <header class="hero" id="top">
       <div class="hero-in">
         <div>
-          <div class="eyebrow"><span class="live"><span class="dot"></span>Live</span> Instrumentation · Smart sensors · AI · Robotics · UAE</div>
+          <div class="eyebrow"><span class="live"><span class="dot"></span>Live</span> Instrumentation · Smart sensors · IoT · AI · Robotics · UAE</div>
           <h1 id="title">News desk</h1>
           <p class="take" id="take">&nbsp;</p>
         </div>
@@ -288,6 +288,7 @@ html, body { background: var(--bg, #f6f7f9); }
       <div class="kpi" style="--c:#d97706"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="uae">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">UAE</div></div>
       <div class="kpi" style="--c:#db2777"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="uaeai">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">UAE AI</div></div>
       <div class="kpi" style="--c:#ea580c"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="sensors">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Smart sensors</div></div>
+      <div class="kpi" style="--c:#0d9488"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="iot">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">IoT</div></div>
       <div class="kpi" style="--c:#64748b"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="week">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Stories, last 7 days</div></div>
       <div class="kpi" style="--c:#059669"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="working">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Sources online</div></div>
     </div>
@@ -481,6 +482,7 @@ dash.calc('summary', {
       uae: day.filter(r => r.topic === 'UAE').length,
       uaeai: day.filter(r => r.topic === 'UAE AI').length,
       sensors: day.filter(r => r.topic === 'Smart Sensors').length,
+      iot: day.filter(r => r.topic === 'IoT').length,
       week: today_news.length,
       working: source_health.length
     }];
@@ -503,8 +505,8 @@ const t12 = (hhmm) => { const [h, m] = String(hhmm || '').split(':').map(Number)
 const h12 = (hh, short) => { const h = Number(hh); return ((h % 12) || 12) + (short ? (h < 12 ? 'a' : 'p') : (h < 12 ? ' AM' : ' PM')); };
 const $ = (s) => document.querySelector(s);
 const MOTION = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TOPICS = ['All', 'Instrumentation', 'Smart Sensors', 'AI', 'Robotics', 'UAE', 'UAE AI'];
-const TOPIC_COLOR = { All: '#0284c7', Instrumentation: '#0284c7', AI: '#7c3aed', Robotics: '#059669', UAE: '#d97706', 'UAE AI': '#db2777', 'Smart Sensors': '#ea580c' };
+const TOPICS = ['All', 'Instrumentation', 'Smart Sensors', 'IoT', 'AI', 'Robotics', 'UAE', 'UAE AI'];
+const TOPIC_COLOR = { All: '#0284c7', Instrumentation: '#0284c7', AI: '#7c3aed', Robotics: '#059669', UAE: '#d97706', 'UAE AI': '#db2777', 'Smart Sensors': '#ea580c', IoT: '#0d9488' };
 const state = { topic: 'All', date: 'all', src: 'all', sort: 'new', hot: false, q: '' };
 const dayName = (iso) => d3.utcFormat('%a %-d %b')(new Date(iso + 'T00:00:00Z'));
 
@@ -713,7 +715,8 @@ const TAGS = {
   Robotics: '#Robotics #Automation #AI #Industry40 #Engineering',
   UAE: '#UAE #MiddleEast #Dubai #AbuDhabi #Business',
   'UAE AI': '#UAE #AI #UAEAI #ArtificialIntelligence #MiddleEast',
-  'Smart Sensors': '#SmartSensors #IIoT #Instrumentation #Sensors #Industry40'
+  'Smart Sensors': '#SmartSensors #IIoT #Instrumentation #Sensors #Industry40',
+  IoT: '#IoT #IIoT #ConnectedDevices #Industry40 #Technology'
 };
 const STYLES = {
   'News brief': (r) => [r.title, r.summary, 'What does this mean for your plant or project? Share your view below.'],
@@ -810,7 +813,7 @@ $('#lpCopy').addEventListener('click', () => {
   try { navigator.clipboard.writeText(lpFull).then(done, fallback); } catch (e) { fallback(); }
 });
 
-const BEAT_COLOR = { AI: '#7c3aed', Instrumentation: '#0284c7', Robotics: '#059669', 'UAE AI': '#db2777', UAE: '#d97706', Tech: '#d97706', 'Smart Sensors': '#ea580c' };
+const BEAT_COLOR = { AI: '#7c3aed', Instrumentation: '#0284c7', Robotics: '#059669', 'UAE AI': '#db2777', UAE: '#d97706', Tech: '#d97706', 'Smart Sensors': '#ea580c', IoT: '#0d9488' };
 const parseList = (s) => { try { const v = JSON.parse(s || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const ago = (ts) => {
   if (!ts) return '';

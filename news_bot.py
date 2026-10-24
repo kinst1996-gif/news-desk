@@ -116,9 +116,16 @@ FEEDS = {
         "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%28launches%20OR%20introduces%20OR%20unveils%29%20%28sensor%20OR%20transmitter%29%20%28pressure%20OR%20flow%20OR%20level%20OR%20temperature%20OR%20gas%20OR%20vibration%29%20when%3A3d",
         "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%28%22condition%20monitoring%22%20OR%20%22predictive%20maintenance%22%29%20sensor%20when%3A3d",
     ],
+    "IoT": [
+        "https://iot-now.com/feed/",
+        "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=site%3Aiotforall.com%20when%3A3d",   # IoT For All has no feed
+    ],
 }
 # Normal websites without RSS: the bot scrapes headline links from these pages.
 SITES = {
+    "IoT": [
+        "https://iottechnews.com/news/",
+    ],
     "Instrumentation": [
         "https://www.controleng.com/",
         "https://www.automationworld.com/",
@@ -286,10 +293,15 @@ def fetch_feed(url, limit=None):
 
 def fetch_site(url):
     """Generic headline scraper: longest-text same-site links that look like articles."""
-    try:
-        _, body, _ = req(url, headers=UA, raw=True, timeout=20)
-    except Exception as e:
-        print("site failed", url, e)
+    body = None
+    for attempt in range(2):                 # one retry: some sites drop a request now and then
+        try:
+            _, body, _ = req(url, headers=UA, raw=True, timeout=20)
+            break
+        except Exception as e:
+            print("site failed", url, e)
+            time.sleep(3)
+    if body is None:
         return []
     page = body.decode("utf-8", "replace")
     host = urllib.parse.urlparse(url).netloc

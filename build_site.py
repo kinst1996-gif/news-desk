@@ -40,7 +40,7 @@ for x in n.fetch_batch():
 MARKET = re.compile(r"\bmarket (size|share|report|forecast|outlook|analysis|to 20\d\d)|\bCAGR\b|market will (reach|grow)|market is (expected|projected)", re.I)
 items = [x for x in found.values() if not n.JUNK.search(x["title"]) and not MARKET.search(x["title"])]
 items.sort(key=lambda x: -x["ts"])
-CAPS = {"Instrumentation": 100, "AI": 90, "Robotics": 50, "UAE": 80, "UAE AI": 70, "Smart Sensors": 60}   # balance the beats
+CAPS = {"Instrumentation": 100, "AI": 90, "Robotics": 50, "UAE": 80, "UAE AI": 70, "Smart Sensors": 60, "IoT": 60}   # balance the beats
 cnt, sel = {}, []
 for x in items:
     cnt[x["cat"]] = cnt.get(x["cat"], 0) + 1
@@ -56,6 +56,7 @@ UAE_AI = re.compile(r"(?<![A-Za-z])AI(?![A-Za-z])|artificial intelligence|machin
 
 def topic(x):
     t = x["title"] + " " + x.get("summary", "")
+    if x["cat"] == "IoT": return "IoT"
     if x["cat"] == "Smart Sensors": return "Smart Sensors"
     if x["cat"] in ("Instrumentation", "Robotics") and SENSOR.search(x["title"]): return "Smart Sensors"
     if x["cat"] == "Robotics": return "Robotics"

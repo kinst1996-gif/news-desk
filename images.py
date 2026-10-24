@@ -16,6 +16,7 @@ PALETTE = {
     "UAE": ((92, 26, 34), (232, 196, 120)),
     "UAE AI": ((70, 22, 60), (240, 170, 210)),
     "Smart Sensors": ((60, 34, 12), (255, 160, 80)),
+    "IoT": ((10, 56, 56), (94, 234, 212)),
 }
 FONT_DIRS = [r"C:\Windows\Fonts", "/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/truetype/liberation"]
 BOLD = ["segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf"]

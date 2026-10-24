@@ -77,7 +77,8 @@ BASE = {"Instrumentation": ["#Instrumentation", "#ProcessAutomation"],
         "Robotics": ["#Robotics", "#Automation"],
         "UAE": ["#UAE", "#MiddleEast"],
         "UAE AI": ["#UAE", "#AI", "#UAEAI"],
-        "Smart Sensors": ["#SmartSensors", "#IIoT"]}
+        "Smart Sensors": ["#SmartSensors", "#IIoT"],
+        "IoT": ["#IoT", "#IIoT", "#ConnectedDevices"]}
 
 _trend_cache = {"at": 0, "data": []}
 

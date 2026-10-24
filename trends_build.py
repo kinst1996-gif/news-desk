@@ -26,7 +26,7 @@ TECH = re.compile(r"\bai\b|artificial intelligence|gpt|openai|chatgpt|gemini|cla
 AIHEAD = re.compile(r"\bAI\b|[Aa]rtificial intelligence|OpenAI|NVIDIA|[Rr]obot|[Ss]emiconductor|[Aa]utomation")
 
 # 1. rising keywords in our own news feeds
-feeds = [(cat, u) for cat in ("AI", "Instrumentation", "Robotics", "UAE AI", "Smart Sensors") for u in n.FEEDS.get(cat, [])]
+feeds = [(cat, u) for cat in ("AI", "Instrumentation", "Robotics", "UAE AI", "Smart Sensors", "IoT") for u in n.FEEDS.get(cat, [])]
 with ThreadPoolExecutor(12) as pool:
     lists = list(pool.map(lambda cu: [dict(x, cat=cu[0]) for x in n.fetch_feed(cu[1], limit=30)], feeds))
 seen, stories = set(), []

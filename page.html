@@ -480,7 +480,7 @@ html, body { background: var(--bg, #f6f7f9); }
       <div class="lp-head">
         <span class="lp-avw"><img class="lp-av" id="lpAv" alt=""><span class="lp-in" aria-hidden="true">in</span></span>
         <div class="lp-who">
-          <div class="lp-name" id="lpName">Your name</div>
+          <div class="lp-name" id="lpName">Jenson Jacob</div>
           <div class="lp-sub" id="lpHeadline">Your headline</div>
           <div class="lp-sub">Now • <svg class="lp-globe" viewBox="0 0 16 16" aria-label="Public"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm4.9 6h-2a11 11 0 0 0-.8-3.7A5.5 5.5 0 0 1 12.9 7zM8 2.6c.6.8 1.2 2.4 1.4 4.4H6.6C6.8 5 7.4 3.4 8 2.6zM5.9 3.3A11 11 0 0 0 5.1 7h-2a5.5 5.5 0 0 1 2.8-3.7zM3.1 9h2a11 11 0 0 0 .8 3.7A5.5 5.5 0 0 1 3.1 9zM8 13.4C7.4 12.6 6.8 11 6.6 9h2.8c-.2 2-.8 3.6-1.4 4.4zm2.1-.7a11 11 0 0 0 .8-3.7h2a5.5 5.5 0 0 1-2.8 3.7z" fill="currentColor"/></svg></div>
         </div>
@@ -503,7 +503,7 @@ html, body { background: var(--bg, #f6f7f9); }
       </div>
       <div class="ed-row ed-me">
         <span class="ed-lab">You</span>
-        <input id="meName" type="text" placeholder="Your name" aria-label="Your name" maxlength="60">
+        <input id="meName" type="text" placeholder="Jenson Jacob" aria-label="Your name" maxlength="60">
         <input id="meHeadline" type="text" placeholder="Your headline, e.g. Instrumentation Engineer" aria-label="Your headline" maxlength="120">
         <label class="chip ed-photo">Photo<input id="mePhoto" type="file" accept="image/*" hidden></label>
       </div>
@@ -927,7 +927,7 @@ const readMe = () => { try { return JSON.parse(localStorage.getItem(ME_KEY) || '
 const saveMe = (me) => { try { localStorage.setItem(ME_KEY, JSON.stringify(me)); } catch (e) {} };
 function drawMe() {
   const me = readMe();
-  $('#lpName').textContent = me.name || 'Your name';
+  $('#lpName').textContent = me.name || 'Jenson Jacob';   // the owner's name unless changed on this device
   $('#lpHeadline').textContent = me.headline || 'Your headline';
   $('#lpAv').src = me.photo || DEFAULT_AV;
   if (document.activeElement !== $('#meName')) $('#meName').value = me.name || '';

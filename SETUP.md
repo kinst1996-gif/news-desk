@@ -5,7 +5,7 @@ Live at **https://kinst1996-gif.github.io/news-desk/**. No PC, server or Telegra
 | What | Runs on | How often |
 |---|---|---|
 | Website | GitHub Pages | Always on |
-| News, pictures, hashtags | GitHub Actions (`news.yml`) | Every 3 hours |
+| News, pictures, hashtags | GitHub Actions (`news.yml`) | Every hour |
 | Trending now | GitHub Actions (`trends.yml`) | Every 15 minutes |
 
 ## Posting a story to LinkedIn

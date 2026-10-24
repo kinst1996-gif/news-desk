@@ -48,6 +48,21 @@ html, body { background: var(--bg, #f6f7f9); }
 .nd .sync.fresh { border-color: var(--green); }
 .nd .sync.fresh .arc { stroke: var(--green); } .nd .sync.fresh .core { fill: var(--green); } .nd .sync.fresh .sync-t { color: var(--green); }
 
+/* what the last sync brought */
+.nd .sync-new { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--green); color: #fff; }
+.nd .sync-new.quiet { background: var(--panel-2); color: var(--muted); font-weight: 500; }
+.nd .sync-new b { font: 700 13px var(--mono); font-variant-numeric: tabular-nums; }
+.nd .story .newtag { position: absolute; right: 8px; bottom: 8px; z-index: 1; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 3px 7px; border-radius: 4px; color: #fff; background: var(--green); }
+.nd .story.is-new { border-color: var(--green); }
+@media (prefers-reduced-motion: no-preference) {
+  .nd .sync-new:not([hidden]) { animation: newPop .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .nd .sync-new.leaving { animation: newOut .4s ease-in both; }
+  .nd .story.is-new { animation: newGlow 2s ease-out 3; }
+}
+@keyframes newPop { from { opacity: 0; transform: translateY(-6px) scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes newOut { to { opacity: 0; transform: translateY(-4px) scale(.95); } }
+@keyframes newGlow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+
 /* controls */
 .nd .btn { font: 600 13px var(--sans); padding: 8px 14px; border-radius: 8px; cursor: pointer; color: #fff; background: var(--cyan); border: 0; }
 .nd .chip { font: 500 12.5px var(--sans); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
@@ -308,6 +323,7 @@ html, body { background: var(--bg, #f6f7f9); }
             </div>
             <div class="sync-bar" aria-hidden="true"><i id="syncBar"></i></div>
           </div>
+          <span class="sync-new" id="syncNew" role="status" aria-live="polite" hidden></span>
           <span class="fetched" id="fetched"></span>
         </div>
       </div>
@@ -726,6 +742,7 @@ function drawFeed() {
     const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = r.topic;
     pic.appendChild(badge);
     if (h) { const hb = document.createElement('span'); hb.className = 'hot'; hb.textContent = '🔥 TRENDING'; pic.appendChild(hb); }
+    if (dash.isFresh && dash.isFresh(r.link)) { a.classList.add('is-new'); const nb = document.createElement('span'); nb.className = 'newtag'; nb.textContent = 'NEW'; pic.appendChild(nb); }
     if (r.img) {
       const im = document.createElement('img'); im.src = r.img; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
       im.addEventListener('error', () => {   // picture could not load (offline, server down): show a headline card instead
@@ -1189,6 +1206,26 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKeywo
     bar.style.transform = 'scaleX(' + (state.checking ? 1 : done) + ')';
   }
   draw(); setInterval(draw, 1000);
+
+  // after each sync: "+N new stories" (counting up), "Trends updated", or a brief "Up to date"
+  const badge = $('#syncNew'); let lastResult = 0, hideTimer = null;
+  dash.onSync((s) => {
+    const r = s.result;
+    if (!r || r.at === lastResult) return;
+    lastResult = r.at; clearTimeout(hideTimer); badge.classList.remove('leaving', 'quiet'); badge.textContent = '';
+    if (r.stories > 0) {
+      const b = document.createElement('b'); b.textContent = '+0'; badge.append(b, ' new ' + (r.stories === 1 ? 'story' : 'stories') + (r.trends ? ' · trends updated' : ''));
+      badge.hidden = false; badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
+      const t0 = performance.now(), n = r.stories, dur = MOTION ? 900 : 0;
+      const step = (now) => { const k = dur ? Math.min(1, (now - t0) / dur) : 1; b.textContent = '+' + Math.round(n * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+      hideTimer = setTimeout(() => { badge.classList.add('leaving'); setTimeout(() => { badge.hidden = true; badge.classList.remove('leaving'); }, 400); }, 60000);
+    } else {
+      badge.classList.add('quiet'); badge.textContent = r.trends ? '✓ Trends updated' : '✓ Up to date';
+      badge.hidden = false; badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
+      hideTimer = setTimeout(() => { badge.classList.add('leaving'); setTimeout(() => { badge.hidden = true; badge.classList.remove('leaving'); }, 400); }, 4000);
+    }
+  });
 })();
 
 /* ---------- insights: brief, plan, launches, deals, events, posted ---------- */

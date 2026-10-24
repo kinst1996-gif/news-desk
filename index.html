@@ -179,6 +179,23 @@
 .nd .kw-item .acts { display: flex; gap: 6px; }
 .nd .kw-explore { justify-self: start; }
 
+/* auto-sync dial (replaces the Refresh button) */
+.nd .sync { position: relative; display: grid; grid-template-columns: 44px auto; gap: 10px; align-items: center; padding: 8px 14px 10px 8px; border-radius: 999px;
+  border: 1px solid rgba(63, 224, 255, .35); background: rgba(8, 18, 34, .7); box-shadow: 0 0 22px rgba(63, 224, 255, .15); overflow: hidden; min-width: 168px; }
+.nd .sync-dial { width: 44px; height: 44px; transform: rotate(-90deg); overflow: visible; }
+.nd .sync-dial circle { fill: none; stroke-width: 3.5; }
+.nd .sync-dial .trk { stroke: rgba(255, 255, 255, .08); }
+.nd .sync-dial .arc { stroke: var(--cyan); stroke-linecap: round; transition: stroke-dashoffset 1s linear; filter: drop-shadow(0 0 5px var(--cyan)); transform-origin: 22px 22px; }
+.nd .sync-dial .core { fill: var(--cyan); stroke: none; transform-origin: 22px 22px; }
+.nd .sync-l { font: 10px var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+.nd .sync-t { font: 600 20px var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; line-height: 1.15; text-shadow: 0 0 14px rgba(63, 224, 255, .45); }
+.nd .sync-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255, 255, 255, .05); }
+.nd .sync-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--violet), var(--cyan)); transform-origin: left; transform: scaleX(0); transition: transform 1s linear; box-shadow: 0 0 8px var(--cyan); }
+.nd .sync.checking .arc { stroke: var(--violet); }
+.nd .sync.fresh { border-color: rgba(70, 240, 164, .6); box-shadow: 0 0 26px rgba(70, 240, 164, .3); }
+.nd .sync.fresh .arc, .nd .sync.fresh .core { stroke: var(--green); fill: var(--green); }
+.nd .sync.fresh .sync-t { color: var(--green); }
+
 /* insight panels */
 .nd .sec-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .nd .brief { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: b; }
@@ -322,6 +339,13 @@
 @keyframes ndFlash { 0%, 30% { background: rgba(70, 240, 164, .16); } 100% { background: transparent; } }
 @keyframes ndRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ndShimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .nd .sync-dial .core { animation: syncBeat 2s ease-in-out infinite; }
+  .nd .sync.checking .sync-dial .arc { animation: ndSpin .9s linear infinite; }
+  .nd .sync.fresh { animation: syncFlash 1.2s var(--ease) 2; }
+}
+@keyframes syncBeat { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.5); opacity: .5; } }
+@keyframes syncFlash { 0% { background: rgba(70, 240, 164, .22); } 100% { background: rgba(8, 18, 34, .7); } }
 @keyframes ndDraw { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
 @keyframes ndPop { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
 </style>
@@ -339,7 +363,18 @@
         </div>
         <div class="status">
           <div class="clock" id="clock">--:--:--<small>AST</small></div>
-          <button class="btn" id="refreshBtn" type="button">Refresh</button>
+          <div class="sync" id="sync" role="status" aria-live="polite" aria-label="Automatic sync">
+            <svg class="sync-dial" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="trk" cx="22" cy="22" r="18"/>
+              <circle class="arc" id="syncArc" cx="22" cy="22" r="18"/>
+              <circle class="core" cx="22" cy="22" r="4"/>
+            </svg>
+            <div class="sync-txt">
+              <div class="sync-l" id="syncL">Next auto sync</div>
+              <div class="sync-t" id="syncT">5:00</div>
+            </div>
+            <div class="sync-bar" aria-hidden="true"><i id="syncBar"></i></div>
+          </div>
           <span class="fetched" id="fetched"></span>
         </div>
       </div>
@@ -1034,13 +1069,30 @@ $('#kwClose').addEventListener('click', closeKeyword);
 $('#kwBack').addEventListener('click', (e) => { if (e.target.id === 'kwBack') closeKeyword(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKeyword(); });
 
-$('#refreshBtn').addEventListener('click', () => {
-  dash.refresh('today_news');
-  dash.refresh('source_health');
-  dash.refresh('trends');
-  $('#refreshBtn').textContent = 'Syncing…';
-  setTimeout(() => { $('#refreshBtn').textContent = 'Refresh'; }, 2500);
-});
+/* auto-sync dial: counts down to the next automatic check, spins while checking, flashes when new data arrived */
+(function syncDial() {
+  const R = 2 * Math.PI * 18, el = $('#sync'), arc = $('#syncArc'), lab = $('#syncL'), txt = $('#syncT'), bar = $('#syncBar');
+  arc.style.strokeDasharray = R;
+  let state = null, flashUntil = 0, lastSeenChange = 0;
+  dash.onSync((s) => {
+    state = s;
+    if (s.lastChange && s.lastChange !== lastSeenChange) { lastSeenChange = s.lastChange; flashUntil = Date.now() + 4000; }
+    draw();
+  });
+  function draw() {
+    if (!state) return;
+    const now = Date.now();
+    const left = Math.max(0, state.nextAt - now), done = 1 - left / state.every;
+    el.classList.toggle('checking', state.checking);
+    el.classList.toggle('fresh', now < flashUntil);
+    if (state.checking) { lab.textContent = 'Syncing'; txt.textContent = 'now'; }
+    else if (now < flashUntil) { lab.textContent = 'New data'; txt.textContent = 'updated'; }
+    else { lab.textContent = 'Next auto sync'; const sec = Math.ceil(left / 1000); txt.textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+    arc.style.strokeDashoffset = state.checking ? R * 0.75 : R * (1 - done);
+    bar.style.transform = 'scaleX(' + (state.checking ? 1 : done) + ')';
+  }
+  draw(); setInterval(draw, 1000);
+})();
 
 /* ---------- insights: brief, plan, launches, deals, events, posted ---------- */
 const GLOSSARY = {
@@ -1286,7 +1338,6 @@ dash.onData(() => {
     const f = news.data.reduce((m, r) => (r.fetched > m ? r.fetched : m), '');
     if (f) { $('#fetched').textContent = 'FEED SYNC ' + f.slice(8, 10) + ' ' + d3.utcFormat('%b')(new Date(f.slice(0, 10) + 'T00:00:00Z')).toUpperCase() + ' · ' + t12(f.slice(11)); $('#srcNote').textContent = 'Checked ' + f.slice(0, 10) + '. Only sources the bot can read are listed.'; }
   }
-  $('#refreshBtn').disabled = news.refreshing === true;
 
   table($('#srcTable'), dash.data('source_health'), r => {
     const p = document.createElement('span');

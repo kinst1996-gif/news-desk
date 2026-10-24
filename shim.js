@@ -29,7 +29,19 @@ window.dash = (function () {
     }
     emit();
   }
-  const checkAll = () => { if (!document.hidden) Object.keys(FILES).forEach(id => load(id, true)); };
+  // sync state the page can show: when the next automatic check is due, and whether one is running
+  const sync = { every: CHECK_EVERY, nextAt: Date.now() + CHECK_EVERY, checking: false, lastChange: 0, listeners: [] };
+  const tellSync = () => sync.listeners.forEach(fn => { try { fn(sync); } catch (e) { console.error(e); } });
+  let timer = null;
+  function schedule() { clearTimeout(timer); sync.nextAt = Date.now() + CHECK_EVERY; timer = setTimeout(checkAll, CHECK_EVERY); tellSync(); }
+  async function checkAll() {
+    if (document.hidden) { schedule(); return; }
+    sync.checking = true; tellSync();
+    const before = Object.keys(FILES).map(id => lastText[id] || '').join('|');
+    await Promise.all(Object.keys(FILES).map(id => load(id, true)));
+    if (Object.keys(FILES).map(id => lastText[id] || '').join('|') !== before) sync.lastChange = Date.now();
+    sync.checking = false; schedule();
+  }
   const api = {
     colors: ['#3fe0ff', '#a68bff', '#46f0a4', '#ffc457', '#ff6fcf', '#7fb8ff', '#ff8a3d', '#c9d6e8'],
     calc(id, def) { calcs[id] = def; },
@@ -44,12 +56,13 @@ window.dash = (function () {
     },
     onData(fn) { listeners.push(fn); try { fn(); } catch (e) { console.error(e); } },
     refresh(id) { if (FILES[id]) load(id); },
+    onSync(fn) { sync.listeners.push(fn); fn(sync); },     // page draws the auto-sync countdown from this
     params() { return {}; }, setParams() {}, resetParams() {}, setLink() {}
   };
   let t = null;
   window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(emit, 200); });
-  setInterval(checkAll, CHECK_EVERY);
-  document.addEventListener('visibilitychange', checkAll);   // opening the app again checks at once
+  schedule();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkAll(); });   // opening the app again checks at once
   window.addEventListener('online', checkAll);               // back online: check at once
   return api;
 })();

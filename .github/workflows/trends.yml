@@ -1,0 +1,25 @@
+name: Trends refresh
+# Rebuilds the "Trending now" table every 15 minutes (about 30 seconds per run).
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: trends-refresh
+  cancel-in-progress: true
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pillow
+      - name: Build trends
+        run: python trends_build.py
+      - name: Publish
+        env: { COMMIT_MSG: "trends update" }
+        run: bash push.sh data/trends.json

@@ -1,0 +1,164 @@
+"""Build the website's news data: data/today_news.json plus one picture per story in img/.
+
+Pictures are cached by story: a story that already has img/<id>.jpg is not downloaded again,
+and pictures of stories that dropped out of the list are deleted, so the repository stays small.
+"""
+import json, os, re, time, collections, html, urllib.parse
+from datetime import datetime
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+import news_bot as n
+import images, hashtags, facts
+
+HERE = Path(__file__).parent
+DATA, IMG = HERE / "data", HERE / "img"
+DATA.mkdir(exist_ok=True); IMG.mkdir(exist_ok=True)
+if hasattr(time, "tzset"):            # Linux (GitHub runners use UTC); Windows already uses local time
+    os.environ.setdefault("TZ", "Asia/Dubai")
+    time.tzset()                     # GitHub runners use UTC: show times in UAE time
+
+KEEP_DAYS = 7                      # stories (and their pictures) older than this are dropped on every refresh
+now = time.time(); cut = now - KEEP_DAYS * 86400
+FETCHED = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
+
+found, src_of, readable = {}, {}, []   # src_of: link -> source name, for the Sources table
+
+
+def src_name(u):
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(u).query).get("q", [""])[0]
+    if "news.google.com" in u and q:
+        return "Google News: " + re.sub(r"\s*when:\w+", "", q.replace("site:", "")).strip()
+    return urllib.parse.urlparse(u).netloc.removeprefix("www.")
+
+
+for cat, urls in n.FEEDS.items():
+    for u in urls:
+        got = n.fetch_feed(u, limit=40)
+        if got: readable.append((src_name(u), "Feed", cat))
+        for it in got:
+            if it["ts"] >= cut:
+                it["cat"] = cat; found[it["link"]] = it; src_of[it["link"]] = src_name(u)
+for cat, urls in n.SITES.items():
+    for u in urls:
+        got = n.fetch_site(u)
+        if got: readable.append((src_name(u), "Page", cat))
+        for it in got:
+            it["cat"] = cat; it["ts"] = n.page_ts(it["link"])
+            if it["ts"] >= cut:
+                found[it["link"]] = it; src_of[it["link"]] = src_name(u)
+batch = n.fetch_batch()
+if batch: readable.append(("The Batch (DeepLearning.AI)", "Page", "AI"))
+for x in batch:
+    if x["ts"] >= cut:
+        found[x["link"]] = x; src_of[x["link"]] = "The Batch (DeepLearning.AI)"
+
+for x in found.values():                 # some feeds escape twice (&amp;rsquo;)
+    x["title"] = html.unescape(x["title"]); x["summary"] = html.unescape(x.get("summary") or "")
+
+MARKET = re.compile(r"\bmarket (size|share|report|forecast|outlook|analysis|to 20\d\d)|\bCAGR\b|market will (reach|grow)|market is (expected|projected)", re.I)
+items = [x for x in found.values() if not n.JUNK.search(x["title"]) and not MARKET.search(x["title"])]
+# UAE outlets also run world news: keep a UAE-feed story only when it is about the UAE or the Gulf
+UAE_TERMS = re.compile(r"UAE|Emirat|Dubai|Abu Dhabi|Sharjah|Ajman|Ras Al Khaimah|Fujairah|Umm Al Quwain|\bGCC\b|\bGulf\b|ADNOC|Masdar|DEWA|Etisalat|\be&\b|Mubadala|G42|\bDh\s?\d|\bAED\b|bin Rashid|bin Zayed|Sheikh|Museum of the Future|Expo City|Burj|Louvre Abu Dhabi|Etihad|Emirates airline|flydubai|RTA|Yas|Saadiyat", re.I)
+items = [x for x in items if x["cat"] != "UAE" or UAE_TERMS.search(x["title"] + " " + x.get("summary", ""))]
+items.sort(key=lambda x: -x["ts"])
+# the same story often comes from several feeds (or Google News twice): keep one, preferring the publisher's own link
+GN_SRC = re.compile(r"\s+[-–|]\s+[^-–|]{2,40}$")         # Google News titles end in " - Source"
+key = lambda x: re.sub(r"\W+", "", GN_SRC.sub("", x["title"]).lower())[:60]
+items = [x for x in items if len(GN_SRC.sub("", x["title"]).split()) >= 4]   # drops titles like "- Gulf Business"
+best = {}
+for x in items:
+    b = best.get(key(x))
+    if b is None or ("news.google.com" in b["link"] and "news.google.com" not in x["link"]):
+        best[key(x)] = x
+items = [x for x in items if best[key(x)] is x]
+CAPS = {"Instrumentation": 100, "AI": 90, "Robotics": 50, "UAE": 80, "UAE AI": 70, "Smart Sensors": 60, "IoT": 60}   # balance the beats
+cnt, sel = {}, []
+for x in items:
+    cnt[x["cat"]] = cnt.get(x["cat"], 0) + 1
+    if cnt[x["cat"]] <= CAPS.get(x["cat"], 50):
+        sel.append(x)
+items = sel
+
+ROBO = re.compile(r"robot|humanoid|cobot|drone|autonomous|exoskeleton", re.I)
+INST = re.compile(r"sensor|flow ?meter|transmitter|measurement|instrument|calibrat|PLC|SCADA|\bDCS\b|process control|analyzer|valve", re.I)
+SENSOR = re.compile(r"\bsensors?\b|\btransmitters?\b|IO-Link|\bMEMS\b|Ethernet-APL|\bsensing\b", re.I)
+UAE_AI = re.compile(r"(?<![A-Za-z])AI(?![A-Za-z])|artificial intelligence|machine learning|LLM|generative|chatbot|data cent|G42|MBZUAI|Falcon|Core42", re.I)
+
+
+def topic(x):
+    t = x["title"] + " " + x.get("summary", "")
+    if x["cat"] == "IoT": return "IoT"
+    if x["cat"] == "Smart Sensors": return "Smart Sensors"
+    if x["cat"] in ("Instrumentation", "Robotics") and SENSOR.search(x["title"]): return "Smart Sensors"
+    if x["cat"] == "Robotics": return "Robotics"
+    if x["cat"] == "UAE AI": return "UAE AI"
+    if x["cat"] == "UAE": return "UAE AI" if UAE_AI.search(t) else "UAE"
+    if ROBO.search(t): return "Robotics"
+    if x["cat"] == "Instrumentation" or INST.search(x["title"]): return "Instrumentation"
+    return "AI"
+
+
+TRENDS = hashtags.google_trends()
+old = {}
+try:
+    old = {r["link"]: r for r in json.load(open(DATA / "today_news.json", encoding="utf-8"))}
+except Exception:
+    pass
+
+
+def make_row(x):
+    prev = old.get(x["link"])
+    desc = x.get("summary") or (prev or {}).get("summary") or n.og_desc(x["link"])
+    tp = topic({**x, "summary": desc})
+    uid = n.uid(x)
+    path = IMG / f"{uid}.jpg"
+    kind = (prev or {}).get("image", "No")
+    if not path.exists():
+        try:
+            b, k = images.story_image({**x, "topic": tp}, width=640, quality=68)
+            path.write_bytes(b)
+            kind = {"article": "Article", "card": "Title card"}.get(k, "No")
+        except Exception:
+            kind = "No"
+    tg, trd = hashtags.tags_for(x["title"], desc, tp, TRENDS)
+    pts = (prev or {}).get("points")
+    if pts is None:
+        try:
+            pts = facts.key_facts(x["link"], x["title"], desc)
+        except Exception:
+            pts = []
+    d = datetime.fromtimestamp(x["ts"]).astimezone()
+    return {"date": d.strftime("%Y-%m-%d"), "time": d.strftime("%H:%M"), "group": x["cat"], "topic": tp,
+            "title": x["title"], "summary": desc[:200], "link": x["link"],
+            "image": kind, "img": f"img/{uid}.jpg" if path.exists() else "", "fetched": FETCHED,
+            "added": (prev or {}).get("added") or (prev or {}).get("fetched") or FETCHED,   # first update that brought this story
+            "tags": " ".join(tg), "trending": ", ".join(trd), "points": pts}
+
+
+with ThreadPoolExecutor(8) as pool:
+    rows = list(pool.map(make_row, items))
+
+keep = {Path(r["img"]).name for r in rows if r["img"]}
+removed = 0
+for f in IMG.glob("*.jpg"):
+    if f.name not in keep:
+        f.unlink(); removed += 1
+
+json.dump(rows, open(DATA / "today_news.json", "w", encoding="utf-8"), ensure_ascii=False)
+
+# Sources table: every source the bot could read this hour, with what it gave
+per = collections.defaultdict(list)
+for r in rows:
+    per[src_of.get(r["link"])].append(r)
+health, seen = [], set()
+for name, kind, cat in readable:
+    if name in seen: continue
+    seen.add(name); got = per.get(name, [])
+    pics = any(r["image"] == "Article" for r in got)
+    health.append({"source": name, "kind": kind, "group": cat, "stories": len(got), "dates": "Yes",
+                   "images": "Yes" if pics else "No", "status": "Full" if got and pics else "Partial"})
+health.sort(key=lambda h: (h["group"], -h["stories"]))
+json.dump(health, open(DATA / "source_health.json", "w", encoding="utf-8"), ensure_ascii=False)
+print(len(rows), "stories,", len(keep), "pictures kept,", removed, "old pictures removed,",
+      os.path.getsize(DATA / "today_news.json") // 1024, "KB of data")
+print(collections.Counter(r["topic"] for r in rows), collections.Counter(r["image"] for r in rows))

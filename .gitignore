@@ -1,0 +1,5 @@
+.env
+token.json
+cards/
+__pycache__/
+*.log

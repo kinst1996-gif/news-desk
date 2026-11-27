@@ -1,0 +1,1600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>News Desk</title>
+<meta name="description" content="Live instrumentation, AI, robotics and UAE news, ready to post on LinkedIn.">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --font-anthropic-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; --font-anthropic-serif: Georgia, serif; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: light dark; }
+  html, body { margin: 0; background: #f6f7f9; min-height: 100%; }
+  @media (prefers-color-scheme: dark) { html, body { background: #0f1115; } }
+  #dash-root { min-height: 100vh; }
+  .dash-skeleton:empty { min-height: 120px; border-radius: 10px; background: linear-gradient(90deg, rgba(127,127,127,.08), rgba(127,127,127,.16), rgba(127,127,127,.08)); background-size: 200% 100%; animation: sk 1.4s linear infinite; }
+  @keyframes sk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="shim.js"></script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+/* Minimal: plain surfaces, one accent per topic, system fonts, almost no effects. Light by default, dark when the device is dark. */
+#dash-root { --dash-gutter: 0; }
+.nd {
+  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --line: #e3e6eb; --line-hi: #c9ced6;
+  --fg: #16191e; --muted: #5d646e; --dim: #8b919a;
+  --cyan: #0284c7; --violet: #7c3aed; --green: #059669; --amber: #d97706; --magenta: #db2777; --red: #dc2626;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r: 10px; --ease: cubic-bezier(.2, .8, .2, 1);
+  color-scheme: light; color: var(--fg); font-family: var(--sans);
+}
+@media (prefers-color-scheme: dark) {
+  .nd { --bg: #0f1115; --panel: #16191f; --panel-2: #1c2027; --line: #262b33; --line-hi: #3a414c; --fg: #e8eaee; --muted: #a2a9b4; --dim: #6f7783;
+    --cyan: #38bdf8; --violet: #a78bfa; --green: #34d399; --amber: #fbbf24; --magenta: #f472b6; --red: #f87171; color-scheme: dark; }
+}
+html, body { background: var(--bg, #f6f7f9); }
+.nd.app { background: var(--bg); min-height: 100%; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.nd .wrap { max-width: 1120px; margin-inline: auto; display: grid; gap: 16px; }
+.nd :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* header */
+.nd .hero { border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.nd .hero-in { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; align-items: flex-end; }
+.nd .eyebrow { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.nd h1 { margin: 4px 0 0; font-size: 28px; font-weight: 700; letter-spacing: -.01em; line-height: 1.1; }
+.nd .take { color: var(--muted); margin: 6px 0 0; font-size: 14px; max-width: 60ch; }
+.nd .status { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: flex-end; }
+.nd .clock { font: 500 15px var(--mono); font-variant-numeric: tabular-nums; color: var(--fg); }
+.nd .clock small { font-size: 11px; color: var(--dim); margin-left: 4px; }
+.nd .fetched { font-size: 12px; color: var(--muted); }
+.nd .live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--red); text-transform: uppercase; }
+.nd .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+
+/* auto-sync: small ring + countdown + thin bar */
+.nd .sync { position: relative; display: inline-flex; gap: 8px; align-items: center; padding: 4px 10px 6px 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+.nd .sync-dial { width: 22px; height: 22px; transform: rotate(-90deg); }
+.nd .sync-dial circle { fill: none; stroke-width: 5; }
+.nd .sync-dial .trk { stroke: var(--line); }
+.nd .sync-dial .arc { stroke: var(--cyan); stroke-linecap: round; transition: stroke-dashoffset 1s linear; transform-origin: 22px 22px; }
+.nd .sync-dial .core { fill: var(--cyan); stroke: none; }
+.nd .sync-txt { display: flex; gap: 6px; align-items: baseline; }
+.nd .sync-l { font-size: 12px; color: var(--muted); }
+.nd .sync-t { font: 600 13px var(--mono); font-variant-numeric: tabular-nums; }
+.nd .sync-bar { position: absolute; left: 12px; right: 12px; bottom: 2px; height: 1px; background: transparent; }
+.nd .sync-bar i { display: block; height: 100%; background: var(--cyan); transform-origin: left; transform: scaleX(0); transition: transform 1s linear; opacity: .6; }
+.nd .sync.checking .arc { stroke: var(--violet); }
+.nd .sync.fresh { border-color: var(--green); }
+.nd .sync.fresh .arc { stroke: var(--green); } .nd .sync.fresh .core { fill: var(--green); } .nd .sync.fresh .sync-t { color: var(--green); }
+
+/* what the last sync brought */
+.nd .sync-new[hidden] { display: none; }
+.nd .sync-new { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--green); color: #fff; }
+.nd .sync-new.quiet { background: var(--panel-2); color: var(--muted); font-weight: 500; }
+.nd .sync-new b { font: 700 13px var(--mono); font-variant-numeric: tabular-nums; }
+.nd .story .newtag { position: absolute; right: 8px; bottom: 8px; z-index: 1; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 3px 7px; border-radius: 4px; color: #fff; background: var(--green); }
+.nd .story.is-new { border-color: var(--green); }
+@media (prefers-reduced-motion: no-preference) {
+  .nd .sync-new:not([hidden]) { animation: newPop .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .nd .sync-new.leaving { animation: newOut .4s ease-in both; }
+  .nd .story.is-new { animation: newGlow 2s ease-out 3; }
+}
+@keyframes newPop { from { opacity: 0; transform: translateY(-6px) scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes newOut { to { opacity: 0; transform: translateY(-4px) scale(.95); } }
+@keyframes newGlow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+
+/* stories brought by the latest feed update */
+.nd .upd { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+.nd .upd b { font: 700 13px var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+.nd .upd .upd-new { color: var(--green); }
+.nd .upd-sep { color: var(--dim); }
+@media (prefers-reduced-motion: no-preference) { .nd .upd.pop { animation: newPop .5s cubic-bezier(.2, 1.4, .4, 1); } }
+
+/* controls */
+.nd .btn { font: 600 13px var(--sans); padding: 8px 14px; border-radius: 8px; cursor: pointer; color: #fff; background: var(--cyan); border: 0; }
+.nd .chip { font: 500 12.5px var(--sans); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.nd .chip:hover { color: var(--fg); border-color: var(--line-hi); }
+.nd .chip[aria-pressed=true] { color: #fff; background: var(--c, var(--cyan)); border-color: var(--c, var(--cyan)); }
+.nd .chip .n { font: 11px var(--mono); opacity: .75; }
+.nd .sel { font: 500 12.5px var(--sans); padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+
+/* panels */
+.nd .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.nd h2 { margin: 0; font-size: 15px; font-weight: 650; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.nd h2 .tag { font-size: 11px; font-weight: 400; color: var(--dim); letter-spacing: .02em; }
+.nd .note { color: var(--muted); font-size: 12.5px; margin: 4px 0 12px; line-height: 1.45; }
+.nd .grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.nd .sec-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.nd .empty, .nd .none { color: var(--muted); font-size: 13px; padding: 16px; text-align: center; border: 1px dashed var(--line); border-radius: 8px; }
+
+/* KPI row: plain numbers */
+.nd .kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr)); }
+.nd .kpi { padding: 12px 14px; border-radius: var(--r); background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--c); }
+.nd .kpi .row { display: block; }
+.nd .kpi svg { display: none; }
+.nd .kpi .big { font-size: 24px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.nd .kpi .lab { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+/* my LinkedIn post counters (saved on this device) */
+.nd .kpi.mine .big small { font-size: 14px; font-weight: 500; color: var(--dim); }
+.nd .kpi .goal { height: 4px; border-radius: 2px; background: var(--panel-2); margin-top: 8px; overflow: hidden; }
+.nd .kpi .goal i { display: block; height: 100%; width: 0; background: var(--c); border-radius: 2px; transition: width .6s ease; }
+.nd .kpi.mine.done .goal i { background: var(--green); }
+@media (prefers-reduced-motion: no-preference) { .nd .kpi.mine.bump { animation: newPop .5s cubic-bezier(.2, 1.4, .4, 1); } }
+
+/* charts */
+.nd .chart { min-height: 200px; position: relative; }
+.nd .chart text { font-family: var(--mono); }
+.nd .tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line-hi); border-radius: 6px; padding: 5px 9px; font: 12px var(--mono); color: var(--fg); display: none; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+
+/* trending table */
+.nd .gt-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.nd .radar { display: none; }
+.nd .gt-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 8px; overflow-x: auto; }
+.nd .gt-tab { font: 600 13px var(--sans); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+.nd .gt-tab b { font: 500 11px var(--mono); margin-left: 4px; color: var(--dim); }
+.nd .gt-tab[aria-selected=true] { color: var(--fg); border-bottom-color: var(--cyan); }
+.nd .tr-ticker { display: none; }
+.nd .gt-table { display: grid; min-height: 120px; }
+.nd .gt-row { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 2.4fr) 100px; gap: 14px; align-items: center;
+  padding: 10px 8px; border: 0; border-top: 1px solid var(--line); text-align: left; font: inherit; color: inherit; background: none; cursor: pointer; width: 100%; }
+.nd .gt-row:hover { background: var(--panel-2); }
+.nd .gt-hdr { cursor: default; padding-block: 6px; font-size: 11px; color: var(--dim); border-top: 0; }
+.nd .gt-hdr:hover { background: none; }
+.nd .gt-term { min-width: 0; }
+.nd .gt-term b { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .gt-term small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .gt-vol b { display: block; font: 600 14px var(--mono); }
+.nd .gt-vol small { font: 12px var(--mono); }
+.nd .gt-start { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+.nd .gt-active { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--green); }
+.nd .gt-active i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.nd .gt-active.off { color: var(--dim); } .nd .gt-active.off i { background: var(--dim); }
+.nd .gt-chips { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.nd .gt-chips span { font-size: 11.5px; padding: 3px 8px; border-radius: 999px; background: var(--panel-2); color: var(--fg); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .gt-chips .more { color: var(--muted); }
+.nd .gt-spark svg { width: 100px; height: 28px; display: block; overflow: visible; }
+.nd .gt-empty { padding: 20px 8px; color: var(--muted); font-size: 13px; text-align: center; border-top: 1px solid var(--line); }
+.nd .tr-up { color: var(--green); } .nd .tr-down { color: var(--dim); }
+.nd .tr-bar { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; display: block; }
+.nd .tr-bar i { display: block; height: 100%; border-radius: 3px; }
+@media (max-width: 760px) {
+  .nd .gt-hdr { display: none; }
+  .nd .gt-row { grid-template-columns: minmax(0, 1fr) 88px; grid-template-areas: "term spark" "vol start" "chips chips"; row-gap: 6px; }
+  .nd .gt-term { grid-area: term; } .nd .gt-spark { grid-area: spark; justify-self: end; } .nd .gt-vol { grid-area: vol; } .nd .gt-start { grid-area: start; justify-items: end; text-align: right; } .nd .gt-chips { grid-area: chips; }
+  .nd .gt-spark svg { width: 88px; }
+}
+
+/* keyword panel + post preview overlays */
+.nd .lp-back { position: fixed; inset: 0; background: rgba(15, 17, 21, .55); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; z-index: 50;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.nd .lp-back[hidden] { display: none; }
+.nd .kw { width: 100%; max-width: 620px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 12px; }
+.nd .kw-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.nd .kw-eyebrow { font-size: 12px; color: var(--muted); }
+.nd .kw h3 { margin: 4px 0 0; font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.nd .kw-stats { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); }
+.nd .kw-stats b { color: var(--fg); }
+.nd .kw-chart svg { width: 100%; height: 110px; display: block; }
+.nd .kw-rel { display: flex; flex-wrap: wrap; gap: 6px; }
+.nd .kw-rel button { font: 12px var(--sans); padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.nd .kw-sub { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+.nd .kw-list { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
+.nd .kw-item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.nd .kw-item .t { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.nd .kw-item .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.nd .kw-item .acts { display: flex; gap: 6px; }
+.nd .kw-explore { justify-self: start; }
+.nd .lp-wrap { width: 100%; max-width: 640px; display: grid; gap: 10px; justify-items: center; }
+.nd .lp-wrap > * { width: 100%; }
+.nd .lp-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.nd .lp-bar .t { font-size: 12px; color: #fff; margin-right: auto; }
+.nd .lp-post { text-decoration: none; display: inline-flex; align-items: center; }
+/* LinkedIn post card: look and sizes adapted from linkedinpreview.com (MIT licence, github.com/gatteo/linkedinpreview.com) */
+.nd .lp-sizes { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: rgba(255,255,255,.14); width: auto !important; justify-self: center; }
+.nd .lp-size { font: 600 12px var(--sans); color: #e8eaee; background: none; border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.nd .lp-size[aria-pressed=true] { background: #fff; color: #191919; }
+.nd .lp { background: #fff; color: rgba(0,0,0,.9); border-radius: 8px; overflow: hidden; font-family: -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06); justify-self: center; transition: max-width .25s ease; max-width: 555px; }
+.nd .lp[data-size=tablet] { max-width: 480px; } .nd .lp[data-size=mobile] { max-width: 320px; }
+.nd .lp-head { display: flex; gap: 8px; padding: 12px 16px 0; align-items: flex-start; }
+.nd .lp-avw { position: relative; flex: none; width: 48px; height: 48px; }
+.nd .lp-av { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: block; background: #e7e2dc; }
+.nd .lp-in { position: absolute; right: -2px; bottom: -2px; width: 16px; height: 16px; border-radius: 50%; background: #0a66c2; color: #fff; font: 700 9px/16px Arial, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff; }
+.nd .lp-who { min-width: 0; flex: 1; }
+.nd .lp-name { font-weight: 600; font-size: 14px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .lp-sub { color: rgba(0,0,0,.6); font-size: 12px; line-height: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 3px; }
+.nd .lp-globe { width: 14px; height: 14px; color: rgba(0,0,0,.6); }
+.nd .lp-follow { margin-left: auto; color: rgba(0,0,0,.6); font-size: 18px; line-height: 20px; }
+.nd .lp-textw { position: relative; margin: 12px 16px 8px; }
+.nd .lp-text { font-size: 14px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nd .lp-text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.nd .lp-text .ht { color: #0a66c2; font-weight: 600; }
+.nd .lp-more { position: absolute; right: 0; bottom: 0; font: 14px/20px inherit; font-family: inherit; color: rgba(0,0,0,.6); background: #fff; border: 0; padding: 0 0 0 4px; cursor: pointer; }
+.nd .lp-more:hover { color: #0a66c2; text-decoration: underline; }
+.nd .lp-more.less { position: static; padding: 0; margin-top: 4px; }
+.nd .lp-img { display: block; width: 100%; max-height: 600px; object-fit: contain; background: #f3f2ef; }
+.nd .lp-link { border-top: 1px solid #e8e8e8; padding: 10px 16px; background: #eef3f8; }
+.nd .lp-link .h { font-weight: 600; font-size: 14px; } .nd .lp-link .d { color: rgba(0,0,0,.6); font-size: 12px; }
+.nd .lp-social { display: flex; align-items: center; padding: 8px 16px 0; min-height: 20px; }
+.nd .lp-rx { display: inline-flex; }
+.nd .lp-rx i { font-style: normal; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-right: -4px; box-shadow: 0 0 0 1.5px #fff; }
+.nd .rx-like { background: #378fe9; } .nd .rx-cel { background: #6dae4f; } .nd .rx-love { background: #df704d; }
+.nd .lp-acts { display: flex; justify-content: space-around; border-top: 1px solid #e8e8e8; margin: 8px 16px 0; padding: 4px 0; }
+.nd .lp-acts span { display: inline-flex; align-items: center; gap: 6px; padding: 10px 6px; color: rgba(0,0,0,.6); font-size: 13px; font-weight: 600; border-radius: 4px; }
+.nd .lp-acts svg { width: 20px; height: 20px; }
+.nd .lp[data-size=mobile] .lp-acts { justify-content: space-between; }
+.nd .lp[data-size=mobile] .lp-acts span { flex-direction: column; gap: 2px; font-size: 11px; padding: 6px 4px; }
+.nd .ed-me { gap: 6px; }
+.nd .ed-me input[type=text] { flex: 1 1 10rem; min-width: 0; font: 13px var(--sans); color: var(--fg); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; }
+.nd .ed-photo { cursor: pointer; }
+.nd .ed-fmt { display: inline-flex; gap: 3px; margin-left: auto; flex-wrap: wrap; }
+.nd .ed-fmt button { font: 13px var(--sans); min-width: 30px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.nd .ed-fmt button:hover { border-color: var(--line-hi); }
+.nd .ed-fmt-note { font-size: 11.5px; color: var(--dim); }
+.nd .lp-note { color: #e8eaee; font-size: 12px; line-height: 1.45; }
+.nd .ed { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+.nd .ed-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.nd .ed-lab { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; }
+.nd .ed-styles, .nd .ed-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.nd .ed textarea { width: 100%; resize: vertical; min-height: 150px; font: 13.5px/1.5 var(--sans); color: var(--fg); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.nd .ed textarea:focus { outline: 2px solid var(--cyan); outline-offset: 0; }
+.nd .ed-tags button { font: 11.5px var(--mono); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
+.nd .ed-tags button[aria-pressed=true] { color: #fff; background: var(--cyan); border-color: var(--cyan); }
+.nd .ed-best { font-size: 12px; color: var(--green); }
+.nd .ed-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 11.5px; color: var(--muted); }
+.nd .ed-foot .over { color: var(--red); }
+
+.nd .ed-check { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.nd .ed-check .ok { color: var(--green); } .nd .ed-check .no { color: var(--amber); }
+
+/* brief, plan, events, lists */
+.nd .brief { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: b; }
+.nd .brief li { counter-increment: b; }
+.nd .brief button, .nd .plan button, .nd .ri { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; background: none; border: 0; border-radius: 8px; }
+.nd .brief button:hover, .nd .plan button:hover, .nd .ri:hover { background: var(--panel-2); }
+.nd .brief button { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; padding: 8px; }
+.nd .brief button::before { content: counter(b); font: 600 13px var(--mono); color: var(--c, var(--cyan)); }
+.nd .bt { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.nd .bs { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.nd .plan { display: grid; gap: 4px; }
+.nd .plan button { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; padding: 8px; }
+.nd .pd { font: 600 12px var(--mono); color: var(--c, var(--cyan)); line-height: 1.4; }
+.nd .pd small { display: block; color: var(--dim); font-weight: 400; }
+.nd .events { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); margin-top: 10px; }
+.nd .ev { border: 1px solid var(--line); border-left: 3px solid var(--c); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; }
+.nd .ev .days { font: 650 22px var(--mono); line-height: 1; }
+.nd .ev .days small { font-size: 11px; color: var(--muted); margin-left: 4px; }
+.nd .ev .nm { font-weight: 600; font-size: 13.5px; }
+.nd .ev .wh { font-size: 12px; color: var(--muted); }
+.nd .ev .chip { justify-self: start; margin-top: 2px; }
+.nd .radar-list { display: grid; gap: 2px; max-height: 26rem; overflow: auto; }
+.nd .ri { display: grid; gap: 4px; padding: 9px 8px; text-decoration: none; }
+.nd .ri .rt { font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.nd .ri .rm { font-size: 12px; color: var(--muted); }
+.nd .specs { display: flex; flex-wrap: wrap; gap: 4px; }
+.nd .specs span { font: 11px var(--mono); padding: 2px 6px; border-radius: 4px; background: var(--panel-2); color: var(--c, var(--cyan)); }
+.nd abbr.gl { text-decoration: underline dotted var(--dim); text-underline-offset: 3px; cursor: help; }
+.nd .sr-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); margin-top: 4px; }
+.nd .sr-bars { display: grid; gap: 4px; align-content: start; }
+.nd .sr-row { display: grid; grid-template-columns: minmax(0, 9.5rem) 1fr 2.5rem; gap: 10px; align-items: center; font: inherit; font-size: 12.5px; color: inherit; background: none; border: 0; padding: 5px 6px; border-radius: 6px; cursor: pointer; text-align: left; }
+.nd .sr-row:hover, .nd .sr-row[aria-pressed=true] { background: var(--panel-2); }
+.nd .sr-row b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nd .sr-row .tr-bar i { background: #ea580c; }
+.nd .sr-row span:last-child { font: 12px var(--mono); color: var(--muted); text-align: right; }
+
+/* search + feed */
+.nd .search { position: relative; margin-top: 10px; }
+.nd .search input { width: 100%; font: 14px var(--sans); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px 10px 34px; outline: none; }
+.nd .search input:focus { border-color: var(--cyan); }
+.nd .search-ico { position: absolute; left: 12px; top: 50%; transform: translateY(-52%); color: var(--dim); font-size: 16px; }
+.nd .hot-chip[aria-pressed=true] { --c: #ea580c; }
+.nd .filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; }
+.nd .count { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; }
+.nd .news-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.nd .stories { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16.5rem), 1fr)); margin-top: 6px; }
+.nd .story { --c: var(--cyan); display: flex; flex-direction: column; text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 0; min-width: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; transition: border-color .15s; }
+.nd .story:hover, .nd .story:focus-visible { border-color: var(--c); }
+.nd .story .pic { aspect-ratio: 16 / 9; background: var(--panel-2); overflow: hidden; position: relative; }
+.nd .story .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nd .story .badge { position: absolute; left: 8px; top: 8px; z-index: 1; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 4px; color: #fff; background: var(--c); }
+.nd .story .hot { position: absolute; right: 8px; top: 8px; z-index: 1; font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 4px; color: #fff; background: #ea580c; }
+.nd .story .txt { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
+.nd .story .meta { font-size: 11.5px; color: var(--muted); }
+.nd .story .hd { font-size: 14.5px; font-weight: 650; line-height: 1.33; }
+.nd .story .sm { color: var(--muted); font-size: 12.5px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.nd .story .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.nd .story .tags span { font-size: 11px; color: var(--c); }
+.nd .story .cta { display: none; }
+.nd .story .pic .card-fallback { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 30px 12px 12px; font-weight: 650; font-size: 14px; line-height: 1.3; color: var(--fg); background: var(--panel-2); border-top: 3px solid var(--c); }
+.nd mark { background: color-mix(in srgb, var(--cyan) 22%, transparent); color: inherit; border-radius: 2px; }
+.nd .more-wrap { display: flex; justify-content: center; margin-top: 14px; }
+
+/* sources table */
+.nd .box { overflow: auto; max-height: 26rem; }
+.nd table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.nd th { text-align: left; font-size: 11px; font-weight: 600; color: var(--dim); padding: 6px 8px; position: sticky; top: 0; background: var(--panel); }
+.nd td { padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.nd td.num, .nd th.num { text-align: right; }
+.nd .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--panel-2); }
+.nd .Full { color: var(--green); } .nd .Partial { color: var(--amber); }
+
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .6; }
+
+/* motion: only a fade-in and the live dot */
+@media (prefers-reduced-motion: no-preference) {
+  .nd .rise { animation: ndFade .35s ease-out both; animation-delay: var(--d, 0ms); }
+  .nd .dot { animation: ndBlink 2s ease-in-out infinite; }
+  .nd .sync.checking .sync-dial .arc { animation: ndSpin .9s linear infinite; }
+}
+@keyframes ndFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ndBlink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes ndSpin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="nd app" id="app">
+  <div class="wrap">
+    <header class="hero" id="top">
+      <div class="hero-in">
+        <div>
+          <div class="eyebrow"><span class="live"><span class="dot"></span>Live</span> Instrumentation · Smart sensors · IoT · AI · Robotics · UAE</div>
+          <h1 id="title">News desk</h1>
+          <p class="take" id="take">&nbsp;</p>
+        </div>
+        <div class="status">
+          <div class="clock" id="clock">--:--:--<small>AST</small></div>
+          <div class="sync" id="sync" role="status" aria-live="polite" aria-label="Automatic sync">
+            <svg class="sync-dial" viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="trk" cx="22" cy="22" r="18"/>
+              <circle class="arc" id="syncArc" cx="22" cy="22" r="18"/>
+              <circle class="core" cx="22" cy="22" r="4"/>
+            </svg>
+            <div class="sync-txt">
+              <div class="sync-l" id="syncL">Next auto sync</div>
+              <div class="sync-t" id="syncT">5:00</div>
+            </div>
+            <div class="sync-bar" aria-hidden="true"><i id="syncBar"></i></div>
+          </div>
+          <span class="sync-new" id="syncNew" role="status" aria-live="polite" hidden></span>
+          <span class="fetched" id="fetched"></span>
+          <span class="upd" id="upd" title="Stories this news update brought, and stories on the dashboard"><b class="upd-new" id="updNew">+0</b> new <span class="upd-sep">·</span> <b id="updTotal">0</b> stories</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="kpis">
+      <div class="kpi" style="--c:#0284c7"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="total">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab" id="labTotal">Stories today</div></div>
+      <div class="kpi" style="--c:#7c3aed"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="ai">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">AI</div></div>
+      <div class="kpi" style="--c:#0284c7"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="instr">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Instrumentation</div></div>
+      <div class="kpi" style="--c:#059669"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="robot">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Robotics</div></div>
+      <div class="kpi" style="--c:#d97706"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="uae">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">UAE</div></div>
+      <div class="kpi" style="--c:#db2777"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="uaeai">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">UAE AI</div></div>
+      <div class="kpi" style="--c:#ea580c"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="sensors">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Smart sensors</div></div>
+      <div class="kpi" style="--c:#0d9488"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="iot">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">IoT</div></div>
+      <div class="kpi" style="--c:#64748b"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="week">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Stories, last 7 days</div></div>
+      <div class="kpi" style="--c:#059669"><div class="row"><div class="big dash-skeleton" data-source="summary" data-row="0" data-field="working">—</div><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="trk" cx="18" cy="18" r="15"/><circle class="arc" cx="18" cy="18" r="15"/></svg></div><div class="lab">Sources online</div></div>
+      <div class="kpi mine" style="--c:#0a66c2"><div class="row"><div class="big"><span id="postWeek">0</span><small> / 4</small></div></div><div class="lab">My posts this week</div><div class="goal"><i id="postGoal"></i></div></div>
+      <div class="kpi mine" style="--c:#0a66c2"><div class="row"><div class="big" id="postTotal">0</div></div><div class="lab">My posts in total</div></div>
+    </div>
+
+    <div class="grid2">
+      <section class="panel" id="brief">
+        <div class="sec-top">
+          <h2>Morning brief <span class="tag">5 MUST-READS</span></h2>
+          <button class="chip" id="listenBtn" type="button">▶ Listen</button>
+        </div>
+        <p class="note">Picked from the latest day: trending first, one per topic where possible.</p>
+        <ol class="brief" id="briefList"></ol>
+      </section>
+      <section class="panel" id="plan">
+        <div class="sec-top">
+          <h2>This week’s plan <span class="tag">TUE–FRI · 8:30 AM AST</span></h2>
+          <button class="chip" id="planCopy" type="button">Copy plan</button>
+        </div>
+        <p class="note">Four posts a week at peak time, mixed across topics. Tap a day to preview and edit its post.</p>
+        <div class="plan" id="planList"></div>
+      </section>
+    </div>
+
+    <section class="panel" id="events">
+      <div class="sec-top"><h2>Events ahead <span class="tag">COUNTDOWN</span></h2></div>
+      <div class="events" id="eventList"></div>
+    </section>
+
+    <section class="panel gt" id="trending">
+      <div class="gt-head">
+        <div>
+          <h2>Trending now <span class="live"><span class="dot"></span>Live</span></h2>
+          <p class="note" id="trNote">Keywords rising in AI, instrumentation and robotics news, and Google Trends searches about tech. Sweeps every 15 minutes.</p>
+        </div>
+        <span class="radar" aria-hidden="true"></span>
+      </div>
+      <div class="gt-tabs" role="tablist" aria-label="Trend source">
+        <button class="gt-tab" id="tabNews" role="tab" type="button" aria-selected="true">Industry &amp; AI news <b id="nNews">0</b></button>
+        <button class="gt-tab" id="tabGoogle" role="tab" type="button" aria-selected="false">Google Trends · tech <b id="nGoogle">0</b></button>
+      </div>
+      <div class="tr-ticker" aria-hidden="true"><div class="tr-track" id="trTrack"></div></div>
+      <div class="gt-table dash-skeleton" id="trList" data-source="trends" role="table" aria-label="Trending keywords">
+      </div>
+    </section>
+
+    <div class="grid2">
+      <section class="panel" id="sensorRadar" style="grid-column: 1 / -1">
+        <h2>Smart sensor radar <span class="tag">TECH IN THE NEWS · LAST 7 DAYS</span></h2>
+        <p class="note">Which sensor technologies the news is talking about, and the latest smart sensor stories. Tap a bar to see its stories.</p>
+        <div class="sr-grid">
+          <div class="sr-bars" id="srBars"></div>
+          <div class="radar-list" id="srList"></div>
+        </div>
+      </section>
+      <section class="panel" id="launches">
+        <h2>Product launch radar <span class="tag">NEW INSTRUMENTS &amp; KIT</span></h2>
+        <p class="note">Launches in instrumentation and robotics news, with the specs and certifications named in the story.</p>
+        <div class="radar-list" id="launchList"></div>
+      </section>
+      <section class="panel" id="deals">
+        <h2>UAE projects &amp; deals <span class="tag">CONTRACTS · MOUS · TENDERS</span></h2>
+        <p class="note">Contract awards, agreements and investments in UAE news. Useful for sales leads as well as posts.</p>
+        <div class="radar-list" id="dealList"></div>
+      </section>
+    </div>
+
+    <div class="grid2">
+      <section class="panel" id="hours">
+        <h2>Stories by hour <span class="tag">SIGNAL / H</span></h2>
+        <p class="note" id="hourNote">Latest day, Arabian Standard Time</p>
+        <div class="chart dash-skeleton" id="hourChart" data-source="byhour"></div>
+      </section>
+      <section class="panel" id="posted">
+        <h2>Posted to LinkedIn <span class="tag">TRACKER</span></h2>
+        <p class="note">Stories you marked as posted, saved on this device. Tap one to open it again.</p>
+        <div class="radar-list" id="postedList"></div>
+      </section>
+    </div>
+
+    <section id="news">
+      <div class="news-head">
+        <h2>News feed <span class="tag">TAP A CARD FOR THE LINKEDIN PREVIEW</span></h2>
+      </div>
+      <div class="search">
+        <span class="search-ico" aria-hidden="true">⌕</span>
+        <input id="q" type="search" placeholder="Search headlines, companies, hashtags…   ( / )" aria-label="Search the news" autocomplete="off">
+      </div>
+      <div class="filters">
+        <span id="topicChips" role="group" aria-label="Topic" style="display:flex;flex-wrap:wrap;gap:8px"></span>
+        <button class="chip hot-chip" id="hotBtn" type="button" aria-pressed="false">🔥 Trending only</button>
+      </div>
+      <div class="filters">
+        <select class="sel" id="dateSel" aria-label="Date"></select>
+        <select class="sel" id="srcSel" aria-label="Source"></select>
+        <select class="sel" id="sortSel" aria-label="Sort">
+          <option value="new">Newest first</option>
+          <option value="hot">Trending first</option>
+          <option value="old">Oldest first</option>
+        </select>
+        <button class="chip" id="resetBtn" type="button">Reset</button>
+        <span class="count" id="shown"></span>
+      </div>
+      <div class="stories" id="stories"></div>
+      <div class="more-wrap"><button class="chip" id="moreBtn" type="button" hidden>Load more stories</button></div>
+    </section>
+
+    <section class="panel" id="sources">
+      <h2>Sources online <span class="tag">FEEDS · PAGES</span></h2>
+      <p class="note" id="srcNote">Only sources the bot can read are listed.</p>
+      <div class="box">
+        <table id="srcTable" data-source="source_health" data-row-key="source">
+          <thead><tr><th data-field="status">Status</th><th data-field="source">Source</th><th data-field="group">Beat</th><th data-field="kind">Read as</th><th class="num" data-field="stories">Stories</th><th data-field="dates">Dates</th><th data-field="images">Images</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="nd"><div class="lp-back" id="kwBack" hidden>
+  <div class="kw" role="dialog" aria-modal="true" aria-labelledby="kwTitle">
+    <div class="kw-top">
+      <div>
+        <div class="kw-eyebrow" id="kwEyebrow"></div>
+        <h3 id="kwTitle"></h3>
+        <div class="kw-stats" id="kwStats"></div>
+      </div>
+      <button class="chip" id="kwClose" type="button">Close</button>
+    </div>
+    <div class="kw-chart" id="kwChart"></div>
+    <div class="kw-rel" id="kwRel"></div>
+    <div class="kw-sub">Stories about this keyword</div>
+    <div class="kw-list" id="kwList"></div>
+    <a class="chip kw-explore" id="kwExplore" href="#" target="_blank" rel="noopener">Explore on Google Trends ↗</a>
+  </div>
+</div></div>
+
+<div class="nd"><div class="lp-back" id="lpBack" hidden>
+  <div class="lp-wrap" role="dialog" aria-modal="true" aria-label="LinkedIn post preview">
+    <div class="lp-bar">
+      <span class="t">LinkedIn feed preview</span>
+      <a class="btn lp-post" id="lpPost" href="https://www.linkedin.com/feed/" target="_blank" rel="noopener">Post on LinkedIn</a>
+      <button class="chip" id="lpLink" type="button">Copy link for 1st comment</button>
+      <button class="chip" id="lpCopy" type="button">Copy post text</button>
+      <a class="chip" id="lpImg" href="#" download>Download image</a>
+      <button class="chip" id="lpMark" type="button">Mark as posted</button>
+      <a class="chip" id="lpOpen" href="#" target="_blank" rel="noopener">Open article</a>
+      <button class="chip" id="lpClose" type="button">Close</button>
+    </div>
+    <div class="lp-sizes" role="group" aria-label="Preview size">
+      <button type="button" class="lp-size" data-size="mobile" aria-pressed="false">Phone</button>
+      <button type="button" class="lp-size" data-size="tablet" aria-pressed="false">Tablet</button>
+      <button type="button" class="lp-size" data-size="desktop" aria-pressed="true">Desktop</button>
+    </div>
+    <div class="lp" id="lpCard" data-size="desktop">
+      <div class="lp-head">
+        <span class="lp-avw"><img class="lp-av" id="lpAv" alt=""><span class="lp-in" aria-hidden="true">in</span></span>
+        <div class="lp-who">
+          <div class="lp-name" id="lpName">Jenson Jacob</div>
+          <div class="lp-sub" id="lpHeadline">Your headline</div>
+          <div class="lp-sub">Now • <svg class="lp-globe" viewBox="0 0 16 16" aria-label="Public"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm4.9 6h-2a11 11 0 0 0-.8-3.7A5.5 5.5 0 0 1 12.9 7zM8 2.6c.6.8 1.2 2.4 1.4 4.4H6.6C6.8 5 7.4 3.4 8 2.6zM5.9 3.3A11 11 0 0 0 5.1 7h-2a5.5 5.5 0 0 1 2.8-3.7zM3.1 9h2a11 11 0 0 0 .8 3.7A5.5 5.5 0 0 1 3.1 9zM8 13.4C7.4 12.6 6.8 11 6.6 9h2.8c-.2 2-.8 3.6-1.4 4.4zm2.1-.7a11 11 0 0 0 .8-3.7h2a5.5 5.5 0 0 1-2.8 3.7z" fill="currentColor"/></svg></div>
+        </div>
+        <span class="lp-follow" aria-hidden="true">···</span>
+      </div>
+      <div class="lp-textw"><div class="lp-text" id="lpText"></div><button type="button" class="lp-more" id="lpMore" hidden>…more</button></div>
+      <div id="lpMedia"></div>
+      <div class="lp-social" aria-hidden="true"><span class="lp-rx"><i class="rx-like">👍</i><i class="rx-cel">👏</i><i class="rx-love">❤️</i></span></div>
+      <div class="lp-acts" aria-hidden="true">
+        <span><svg viewBox="0 0 24 24"><path d="M19.5 10h-5.3l.8-3.8c.3-1.4-.8-2.7-2.2-2.7L7 10v10h10.6c1 0 1.9-.7 2.1-1.7l1.3-6.3c.3-1-.5-2-1.5-2zM3 10h2.5v10H3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Like</span>
+        <span><svg viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Comment</span>
+        <span><svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3M18 7v5M6 17v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Repost</span>
+        <span><svg viewBox="0 0 24 24"><path d="M21 3 3 10.5l7 2.5 2.5 7L21 3zM10 13l5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Send</span>
+      </div>
+    </div>
+    <div class="ed">
+      <div class="ed-row">
+        <span class="ed-lab">Post style</span>
+        <span class="ed-styles" id="edStyles" role="group" aria-label="Post style"></span>
+      </div>
+      <div class="ed-row ed-me">
+        <span class="ed-lab">You</span>
+        <input id="meName" type="text" placeholder="Jenson Jacob" aria-label="Your name" maxlength="60">
+        <input id="meHeadline" type="text" placeholder="Your headline, e.g. Instrumentation Engineer" aria-label="Your headline" maxlength="120">
+        <label class="chip ed-photo">Photo<input id="mePhoto" type="file" accept="image/*" hidden></label>
+      </div>
+      <div class="ed-row">
+        <label class="ed-lab" for="edText">Edit the post</label>
+        <span class="ed-fmt" role="group" aria-label="Formatting">
+          <button type="button" data-fmt="bold" title="Bold (select text first)"><b>B</b></button>
+          <button type="button" data-fmt="italic" title="Italic"><i>I</i></button>
+          <button type="button" data-fmt="bolditalic" title="Bold italic"><b><i>BI</i></b></button>
+          <button type="button" data-fmt="underline" title="Underline"><u>U</u></button>
+          <button type="button" data-fmt="strike" title="Strikethrough"><s>S</s></button>
+          <button type="button" data-fmt="clear" title="Remove formatting">Clear</button>
+        </span>
+      </div>
+      <textarea id="edText" rows="9" spellcheck="true"></textarea>
+      <div class="ed-fmt-note">Bold and italic use special Unicode letters, as LinkedIn has no formatting. Use them for a few key words only: screen readers and search read them poorly.</div>
+      <div class="ed-row">
+        <span class="ed-lab">Hashtags</span>
+        <span class="ed-tags" id="edTags"></span>
+      </div>
+      <div class="ed-check" id="edCheck" aria-label="Post checklist"></div>
+      <div class="ed-best" id="edBest"></div>
+      <div class="ed-foot"><span id="edCount"></span><span id="edHint">Phones show about 140 characters before “see more”.</span></div>
+    </div>
+    <div class="lp-note" id="lpNote">Edit the post, then tap Post on LinkedIn.</div>
+  </div>
+</div></div>
+
+<script>
+dash.calc('summary', {
+  inputs: ['today_news', 'source_health'],
+  title: 'Headline counts',
+  description: 'Counts stories on the latest day and in the last 7 days, and the sources the bot can read.',
+  fn: (today_news, source_health) => {
+    const latest = today_news.reduce((m, r) => (r.date > m ? r.date : m), '');
+    const day = today_news.filter(r => r.date === latest);
+    return [{
+      latest: latest,
+      total: day.length,
+      ai: day.filter(r => r.topic === 'AI').length,
+      instr: day.filter(r => r.topic === 'Instrumentation').length,
+      robot: day.filter(r => r.topic === 'Robotics').length,
+      uae: day.filter(r => r.topic === 'UAE').length,
+      uaeai: day.filter(r => r.topic === 'UAE AI').length,
+      sensors: day.filter(r => r.topic === 'Smart Sensors').length,
+      iot: day.filter(r => r.topic === 'IoT').length,
+      week: today_news.length,
+      working: source_health.length
+    }];
+  }
+});
+dash.calc('byhour', {
+  inputs: ['today_news'],
+  title: 'Stories per hour',
+  description: 'Counts the latest day\'s stories by publish hour.',
+  fn: (today_news) => {
+    const latest = today_news.reduce((m, r) => (r.date > m ? r.date : m), '');
+    const c = {};
+    today_news.filter(r => r.date === latest).forEach(r => { const h = Number(String(r.time).slice(0, 2)); c[h] = (c[h] || 0) + 1; });
+    return Array.from({ length: 24 }, (_, h) => ({ hour: String(h).padStart(2, '0'), count: c[h] || 0 }));
+  }
+});
+
+const fmt = d3.format(',');
+const t12 = (hhmm) => { const [h, m] = String(hhmm || '').split(':').map(Number); if (isNaN(h)) return hhmm || ''; return ((h % 12) || 12) + ':' + String(m || 0).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+const h12 = (hh, short) => { const h = Number(hh); return ((h % 12) || 12) + (short ? (h < 12 ? 'a' : 'p') : (h < 12 ? ' AM' : ' PM')); };
+const $ = (s) => document.querySelector(s);
+const MOTION = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TOPICS = ['All', 'Instrumentation', 'Smart Sensors', 'IoT', 'AI', 'Robotics', 'UAE', 'UAE AI'];
+const TOPIC_COLOR = { All: '#0284c7', Instrumentation: '#0284c7', AI: '#7c3aed', Robotics: '#059669', UAE: '#d97706', 'UAE AI': '#db2777', 'Smart Sensors': '#ea580c', IoT: '#0d9488' };
+const state = { topic: 'All', date: 'all', src: 'all', sort: 'new', hot: false, q: '' };
+const dayName = (iso) => d3.utcFormat('%a %-d %b')(new Date(iso + 'T00:00:00Z'));
+
+/* live clock, Arabian Standard Time */
+const clockFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+function tick() { const c = $('#clock'); c.firstChild.nodeValue = clockFmt.format(new Date()).replace(/\s?(am|pm)$/i, (m) => ' ' + m.trim().toUpperCase()); }
+tick(); setInterval(tick, 1000);
+
+
+
+/* numbers count up to their value */
+function countTo(el, value) {
+  const target = Number(value) || 0;
+  const from = Number(el.dataset.v || 0);
+  el.dataset.v = String(target);
+  if (!MOTION || from === target) { el.textContent = fmt(target); return; }
+  const t0 = performance.now(), dur = 1100;
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(Math.round(from + (target - from) * e));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function hourChart(el, rows) {
+  el.textContent = '';
+  const w = el.clientWidth || 320, h = 210;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('role', 'img').attr('aria-label', 'Stories by hour');
+  const tip = d3.select(el).append('div').attr('class', 'tip');
+  const defs = svg.append('defs');
+  const gr = defs.append('linearGradient').attr('id', 'barGrad').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+  gr.append('stop').attr('offset', '0%').style('stop-color', '#3fe0ff');
+  gr.append('stop').attr('offset', '100%').style('stop-color', '#a68bff').style('stop-opacity', .55);
+  const glow = defs.append('filter').attr('id', 'barGlow').attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+  glow.append('feGaussianBlur').attr('stdDeviation', 3).attr('result', 'b');
+  const mg = glow.append('feMerge'); mg.append('feMergeNode').attr('in', 'b'); mg.append('feMergeNode').attr('in', 'SourceGraphic');
+  const max = d3.max(rows, r => r.count) || 1;
+  const m = { t: 10, r: 6, b: 24, l: 30 };
+  const x = d3.scaleBand(rows.map(r => r.hour), [m.l, w - m.r]).padding(0.28);
+  const y = d3.scaleLinear([0, max], [h - m.b, m.t]).nice();
+  const ticks = y.ticks(Math.min(max, 4));
+  svg.selectAll('.g').data(ticks).join('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', d => y(d)).attr('y2', d => y(d)).style('stroke', 'var(--line)');
+  svg.selectAll('.gt').data(ticks).join('text').attr('x', m.l - 8).attr('y', d => y(d)).attr('text-anchor', 'end').attr('dominant-baseline', 'middle').style('fill', 'var(--dim)').style('font-size', '10px').text(d => fmt(d));
+  const show = (ev, r) => {
+    tip.style('display', 'block').text(h12(r.hour) + '  ·  ' + fmt(r.count) + (r.count === 1 ? ' story' : ' stories'));
+    const b = el.getBoundingClientRect();
+    tip.style('left', Math.min(ev.clientX - b.left + 12, w - 150) + 'px').style('top', Math.max(ev.clientY - b.top - 34, 0) + 'px');
+  };
+  const bars = svg.selectAll('rect.bar').data(rows).join('rect').attr('class', 'bar').attr('x', r => x(r.hour)).attr('width', x.bandwidth()).attr('rx', 3)
+    .style('fill', 'var(--cyan)').on('mousemove', show).on('mouseleave', () => tip.style('display', 'none'));
+  if (MOTION) {
+    bars.attr('y', y(0)).attr('height', 0).transition().duration(900).delay((_, i) => i * 35).ease(d3.easeCubicOut)
+      .attr('y', r => y(r.count)).attr('height', r => y(0) - y(r.count));
+  } else {
+    bars.attr('y', r => y(r.count)).attr('height', r => y(0) - y(r.count));
+  }
+  const every = Math.ceil(rows.length / Math.max(1, Math.floor((w - m.l) / 30)));
+  svg.selectAll('.xt').data(rows.filter((_, i) => i % every === 0)).join('text').attr('x', r => x(r.hour) + x.bandwidth() / 2).attr('y', h - 6).attr('text-anchor', 'middle').style('fill', 'var(--dim)').style('font-size', '10px').text(r => h12(r.hour, true));
+  svg.append('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--line-hi)');
+}
+
+function table(tbl, d, build) {
+  const body = tbl.querySelector('tbody');
+  body.textContent = '';
+  if (d.status !== 'ok') return;
+  d.data.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-key', r[tbl.getAttribute('data-row-key')]);
+    build(r).forEach(c => {
+      const td = document.createElement('td');
+      if (c.cls) td.className = c.cls;
+      if (c.node) td.appendChild(c.node); else td.textContent = c.text;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+const PAGE = 24;
+let shownCount = PAGE, newsKey = '', feedCtx = null;
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+function hotTags() {
+  const d = dash.data('trends');
+  if (d.status !== 'ok') return new Set();
+  return new Set(d.data.filter(r => r.kind === 'news' && r.change > 0).slice(0, 10).map(r => r.hashtag.toLowerCase()));
+}
+const isHot = (r, hot) => !!r.tags && r.tags.split(/\s+/).some(tg => hot.has(tg.toLowerCase()));
+function matches(r, hot) {
+  const q = state.q.trim().toLowerCase();
+  return (state.topic === 'All' || r.topic === state.topic) && (state.date === 'all' || r.date === state.date)
+    && (state.src === 'all' || hostOf(r.link) === state.src) && (!state.hot || isHot(r, hot))
+    && (!q || q.split(/\s+/).every(w => (r.title + ' ' + (r.summary || '') + ' ' + (r.tags || '') + ' ' + hostOf(r.link)).toLowerCase().includes(w)));
+}
+function highlight(el, text) {
+  const words = state.q.trim().split(/\s+/).filter(w => w.length > 1).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!words.length) { el.textContent = text; return; }
+  const rx = new RegExp('(' + words.join('|') + ')', 'ig');
+  text.split(rx).forEach((part, k) => { if (k % 2) { const m = document.createElement('mark'); m.textContent = part; el.appendChild(m); } else if (part) el.appendChild(document.createTextNode(part)); });
+}
+function setupFilters(news, latest) {
+  const chips = $('#topicChips'), sel = $('#dateSel'), src = $('#srcSel');
+  chips.textContent = '';
+  TOPICS.forEach(tp => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip';
+    b.append(tp + ' ');
+    const n = document.createElement('span'); n.className = 'n';
+    n.textContent = fmt(tp === 'All' ? news.data.length : news.data.filter(r => r.topic === tp).length);
+    b.appendChild(n);
+    b.style.setProperty('--c', TOPIC_COLOR[tp]);
+    b.setAttribute('aria-pressed', String(state.topic === tp));
+    b.addEventListener('click', () => { state.topic = tp; resetPage(); });
+    chips.appendChild(b);
+  });
+  const days = Array.from(new Set(news.data.map(r => r.date))).sort().reverse();
+  sel.textContent = '';
+  sel.appendChild(new Option('All dates', 'all'));
+  days.forEach(d => sel.appendChild(new Option((d === latest ? 'Today, ' : '') + dayName(d) + '  (' + news.data.filter(r => r.date === d).length + ')', d)));
+  sel.value = state.date;
+  const hosts = {};
+  news.data.forEach(r => { const h = hostOf(r.link); if (h) hosts[h] = (hosts[h] || 0) + 1; });
+  src.textContent = '';
+  src.appendChild(new Option('All sources', 'all'));
+  Object.keys(hosts).sort().forEach(h => src.appendChild(new Option(h + '  (' + hosts[h] + ')', h)));
+  src.value = hosts[state.src] ? state.src : 'all';
+}
+function resetPage() { shownCount = PAGE; drawFeed(); }
+function drawFeed() {
+  if (!feedCtx) return;
+  const { news } = feedCtx;
+  const box = $('#stories');
+  const hot = hotTags();
+  document.querySelectorAll('#topicChips .chip').forEach((b, k) => b.setAttribute('aria-pressed', String(state.topic === TOPICS[k])));
+  $('#hotBtn').setAttribute('aria-pressed', String(state.hot));
+  let rows = news.data.map((r, i) => ({ r, i, hot: isHot(r, hot) })).filter(x => matches(x.r, hot));
+  if (state.sort === 'old') rows.reverse();
+  if (state.sort === 'hot') rows.sort((a, b) => (b.hot - a.hot) || (a.i - b.i));
+  $('#shown').textContent = fmt(Math.min(shownCount, rows.length)) + ' OF ' + fmt(rows.length) + ' SHOWN · ' + fmt(news.data.length) + ' TOTAL';
+  box.textContent = '';
+  if (!rows.length) { const n = document.createElement('div'); n.className = 'none'; n.textContent = 'No stories match. Try fewer words or tap Reset.'; box.appendChild(n); $('#moreBtn').hidden = true; return; }
+  rows.slice(0, shownCount).forEach(({ r, i, hot: h }, k) => {
+    const a = document.createElement('button');
+    const fresh = k >= shownCount - PAGE;
+    a.type = 'button'; a.className = 'story' + (fresh ? ' rise' : '');
+    a.style.setProperty('--c', TOPIC_COLOR[r.topic] || TOPIC_COLOR.AI);
+    if (fresh) a.style.setProperty('--d', ((k % PAGE) * 40) + 'ms');
+    a.addEventListener('click', () => openPreview(r));
+    const pic = document.createElement('div'); pic.className = 'pic';
+    const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = r.topic;
+    pic.appendChild(badge);
+    if (h) { const hb = document.createElement('span'); hb.className = 'hot'; hb.textContent = '🔥 TRENDING'; pic.appendChild(hb); }
+    if (dash.isFresh && dash.isFresh(r.link)) { a.classList.add('is-new'); const nb = document.createElement('span'); nb.className = 'newtag'; nb.textContent = 'NEW'; pic.appendChild(nb); }
+    if (r.img) {
+      const im = document.createElement('img'); im.src = r.img; im.alt = ''; im.loading = 'lazy'; im.decoding = 'async';
+      im.addEventListener('error', () => {   // picture could not load (offline, server down): show a headline card instead
+        const fb = document.createElement('div'); fb.className = 'card-fallback'; fb.textContent = r.title; im.replaceWith(fb);
+      }, { once: true });
+      pic.appendChild(im);
+    }
+    else { const fb = document.createElement('div'); fb.className = 'card-fallback'; fb.textContent = r.title; pic.appendChild(fb); }
+    const txt = document.createElement('div'); txt.className = 'txt';
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = dayName(r.date).toUpperCase() + '  ·  ' + t12(r.time) + '  ·  ' + hostOf(r.link);
+    const hd = document.createElement('div'); hd.className = 'hd'; highlight(hd, r.title);
+    hd.setAttribute('data-source', 'today_news'); hd.setAttribute('data-row', String(i)); hd.setAttribute('data-field', 'title');
+    txt.append(meta, hd);
+    if (r.summary) { const sm = document.createElement('div'); sm.className = 'sm'; highlight(sm, r.summary); glossify(sm); txt.appendChild(sm); }
+    if (r.tags) { const tg = document.createElement('div'); tg.className = 'tags'; r.tags.split(/\s+/).slice(0, 4).forEach(x => { const s = document.createElement('span'); s.textContent = x; tg.appendChild(s); }); txt.appendChild(tg); }
+    const cta = document.createElement('div'); cta.className = 'cta'; cta.textContent = 'Preview LinkedIn post →';
+    txt.appendChild(cta);
+    a.append(pic, txt); box.appendChild(a);
+  });
+  $('#moreBtn').hidden = rows.length <= shownCount;
+  $('#moreBtn').textContent = 'Load ' + fmt(Math.min(PAGE, rows.length - shownCount)) + ' more stories';
+}
+function renderNews(news, latest) {
+  const key = latest + '|' + news.data.length + '|' + (news.data[0] && news.data[0].link) + '|' + news.data.reduce((m, r) => (r.fetched > m ? r.fetched : m), '');   // redraw once the latest day is known
+  feedCtx = { news, latest };
+  if (key === newsKey) return;          // same data: keep the feed, its scroll position and the reader's filters
+  newsKey = key;
+  setupFilters(news, latest);
+  drawFeed();
+  drawInsights(news, latest);
+}
+$('#dateSel').addEventListener('change', (e) => { state.date = e.target.value; resetPage(); });
+$('#srcSel').addEventListener('change', (e) => { state.src = e.target.value; resetPage(); });
+$('#sortSel').addEventListener('change', (e) => { state.sort = e.target.value; resetPage(); });
+$('#hotBtn').addEventListener('click', () => { state.hot = !state.hot; resetPage(); });
+let qTimer = null;
+$('#q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value; resetPage(); }, 180); });
+$('#resetBtn').addEventListener('click', () => {
+  Object.assign(state, { topic: 'All', date: 'all', src: 'all', sort: 'new', hot: false, q: '' });
+  $('#q').value = ''; $('#dateSel').value = 'all'; $('#srcSel').value = 'all'; $('#sortSel').value = 'new'; resetPage();
+});
+$('#moreBtn').addEventListener('click', () => { shownCount += PAGE; drawFeed(); });
+document.addEventListener('keydown', (e) => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '');
+  if (e.key === '/' && !typing) { e.preventDefault(); $('#q').focus(); }
+});
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver((ents) => { if (ents.some(x => x.isIntersecting) && !$('#moreBtn').hidden) { shownCount += PAGE; drawFeed(); } }, { root: document, rootMargin: '0px 0px 400px 0px' }).observe($('#moreBtn'));
+}
+
+const TAGS = {
+  Instrumentation: '#Instrumentation #ProcessControl #IndustrialAutomation #Automation #Engineering',
+  AI: '#AI #ArtificialIntelligence #GenAI #Technology #Innovation',
+  Robotics: '#Robotics #Automation #AI #Industry40 #Engineering',
+  UAE: '#UAE #MiddleEast #Dubai #AbuDhabi #Business',
+  'UAE AI': '#UAE #AI #UAEAI #ArtificialIntelligence #MiddleEast',
+  'Smart Sensors': '#SmartSensors #IIoT #Instrumentation #Sensors #Industry40',
+  IoT: '#IoT #IIoT #ConnectedDevices #Industry40 #Technology'
+};
+// LinkedIn 2026 practice: hook in the first ~140 characters, 1-3 sentence paragraphs, value in the post,
+// a specific question at the end, 3-5 hashtags, and the source link in the first comment (links in posts cut reach).
+const AUDIENCE = { Instrumentation: 'instrumentation and control engineers', 'Smart Sensors': 'instrumentation engineers', IoT: 'IIoT and automation teams',
+  Robotics: 'automation engineers', AI: 'engineering teams', UAE: 'teams working in the UAE', 'UAE AI': 'teams working in the UAE' };
+const cleanTitle = (r) => r.title.replace(/\s+[-|–]\s+[^-|–]+$/, '');
+const summaryOf = (r) => { const s = String(r.summary || '').trim(), h = cleanTitle(r).toLowerCase().slice(0, 40); return s && !s.toLowerCase().startsWith(h) ? s : ''; };
+const QUESTION = {
+  Instrumentation: 'Would this change how you specify or maintain instruments on your site?',
+  'Smart Sensors': 'Would you trust this sensor on a live process, or wait for field data?',
+  IoT: 'What is stopping more plants from connecting their field devices today?',
+  Robotics: 'Where would this pay back first in your operation?',
+  AI: 'Where would this save real hours in your team’s week?',
+  'UAE AI': 'What does this mean for AI projects in the UAE over the next year?',
+  UAE: 'How will this affect projects and business in the UAE?'
+};
+const firstSentence = (s) => { const m = String(s || '').match(/^(.{20,220}?[.!?])(\s|$)/); return m ? m[1] : String(s || ''); };
+const restOf = (s) => String(s || '').slice(firstSentence(s).length).trim();
+const numberIn = (s) => (String(s || '').match(/(\$|€|£|AED\s?)\d[\d,.]*\s?(billion|million|bn|m)?|\d[\d,.]*\s?(%|percent|billion|million|x\b|times|GW|MW|TWh)/i) || [''])[0].trim();
+const WHY = {
+  Instrumentation: 'For plant and instrument teams, this changes what you can measure, how reliably, and at what cost.',
+  'Smart Sensors': 'Smarter sensors mean more diagnostics at the edge and fewer surprises in the field.',
+  IoT: 'Connected devices only pay off when the data reaches the people who make the decisions.',
+  Robotics: 'Robots that cope with more variety move automation off the line and into real, messy work.',
+  AI: 'Tools like this change how fast teams can analyse, decide and build.',
+  UAE: 'If you work or do business in the UAE, this shapes the market around you.',
+  'UAE AI': 'It shows how quickly the UAE is turning AI plans into real projects.'
+};
+const factsOf = (r) => { const p = Array.isArray(r.points) && r.points.length ? r.points : [firstSentence(summaryOf(r)), restOf(summaryOf(r))]; return p.filter(Boolean).slice(0, 3); };
+const STYLES = {
+  'News brief': (r) => {
+    const f = factsOf(r), n = numberIn(r.title + ' ' + f.join(' ') + ' ' + summaryOf(r));
+    const lead = n && !cleanTitle(r).toLowerCase().startsWith(n.toLowerCase()) ? n + ': ' : '';   // lead with a striking number, unless the headline already does
+    return [lead + cleanTitle(r),
+      f.length ? 'What happened:\n' + f.map(x => '→ ' + x).join('\n') : '',
+      'Why it matters: ' + (WHY[r.topic] || WHY.AI),
+      QUESTION[r.topic] || QUESTION.AI];
+  },
+  'Engineer’s take': (r) => {
+    const f = factsOf(r);
+    return ['Most ' + (AUDIENCE[r.topic] || 'engineers') + ' will skim past this. They shouldn’t.',
+      cleanTitle(r),
+      f.slice(0, 2).map(x => '→ ' + x).join('\n'),
+      /UAE/.test(r.topic) && r.topic !== 'UAE AI' ? 'My take: announcements are easy. The real signal is what gets built and delivered in the next 12 months.'
+        : 'My take: the launch is the easy part. The real test is what it does after 12 months in the field.',
+      QUESTION[r.topic] || QUESTION.AI];
+  },
+  'Quick points': (r) => {
+    const f = factsOf(r);
+    return ['Why this matters for ' + (AUDIENCE[r.topic] || 'engineers') + ', in 3 points:',
+      '1. What: ' + cleanTitle(r) + (f[0] ? '\n' + f[0] : ''),
+      '2. Key detail: ' + (f[1] || f[0] || 'full story in the first comment.'),
+      '3. Why it matters: ' + (WHY[r.topic] || WHY.AI),
+      'Save this for your next project review. What would you add as point 4?'];
+  }
+};
+let postCtx = null;
+const tagsOf = (r) => Array.from(new Set(((r.tags || '') + ' ' + (TAGS[r.topic] || TAGS.AI)).split(/\s+/).filter(Boolean))).slice(0, 4);   // 3-5 specific hashtags
+function buildPost() {
+  const { r, style, tags } = postCtx;
+  return STYLES[style](r).filter(Boolean).concat([tags.filter(x => x.on).map(x => x.t).join(' ')]).filter(Boolean).join('\n\n');
+}
+const postText = (r) => [r.title, r.summary, tagsOf(r).join(' ')].filter(Boolean).join('\n\n');
+function syncEditor(fromTemplate) {
+  const ta = $('#edText');
+  if (fromTemplate) ta.value = buildPost();
+  lpFull = ta.value;
+  showText(false);
+  const n = lpFull.length;
+  $('#edCount').textContent = fmt(n) + ' / 3,000 characters';
+  $('#edCount').className = n > 3000 ? 'over' : '';
+  drawChecklist(lpFull);
+}
+function drawChecklist(text) {
+  const paras = text.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  const body = paras.filter(p => !/^(#\S+\s*)+$/.test(p));
+  const first = (body[0] || '');
+  const tags = (text.match(/#[A-Za-z0-9_]+/g) || []).length;
+  const checks = [
+    ['Hook in the first 140 characters', first.length > 0 && first.length <= 140 && !/^(excited|proud|thrilled|happy to|in today'?s)/i.test(first)],
+    ['Short paragraphs (1–3 sentences)', body.every(p => p.split('\n').every(l => (l.match(/[.!?](\s|$)/g) || []).length <= 3 && l.length <= 320))],
+    ['No link in the post (put it in the first comment)', !/https?:\/\//i.test(text)],
+    ['3–5 hashtags at the end', tags >= 3 && tags <= 5],
+    ['Ends with a question', /\?\s*$/.test(body[body.length - 1] || '')],
+    ['Under 1,300 characters', text.length <= 1300]
+  ];
+  const box = $('#edCheck'); box.textContent = '';
+  checks.forEach(([label, ok]) => { const s = document.createElement('span'); s.className = ok ? 'ok' : 'no'; s.textContent = (ok ? '✓ ' : '✗ ') + label; box.appendChild(s); });
+}
+function setupEditor(r) {
+  postCtx = { r, style: 'News brief', tags: tagsOf(r).map(x => ({ t: x, on: true })) };
+  const st = $('#edStyles'); st.textContent = '';
+  Object.keys(STYLES).forEach(s => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = s;
+    b.setAttribute('aria-pressed', String(s === postCtx.style));
+    b.addEventListener('click', () => { postCtx.style = s; st.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.textContent === s))); syncEditor(true); });
+    st.appendChild(b);
+  });
+  const tg = $('#edTags'); tg.textContent = '';
+  postCtx.tags.forEach(x => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = x.t; b.setAttribute('aria-pressed', 'true');
+    b.addEventListener('click', () => { x.on = !x.on; b.setAttribute('aria-pressed', String(x.on)); syncEditor(true); });
+    tg.appendChild(b);
+  });
+  $('#edBest').textContent = '⏱ Best time to post: ' + bestTime() + ' (peak for B2B: Tue–Fri morning; avoid Monday mornings and weekends)';
+  syncEditor(true);
+}
+$('#edText').addEventListener('input', () => syncEditor(false));
+let lpFull = '';
+/* LinkedIn-style text: hashtags in blue, cut after 3 lines with "…more" (as in linkedinpreview.com, MIT) */
+let lpExpanded = false;
+function showText(expanded) {
+  if (expanded !== undefined) lpExpanded = expanded;
+  const box = $('#lpText'), more = $('#lpMore');
+  box.textContent = '';
+  lpFull.split(/(#[\wÀ-ɏ]+)/g).forEach((part, k) => {
+    if (k % 2) { const s = document.createElement('span'); s.className = 'ht'; s.textContent = part; box.appendChild(s); }
+    else if (part) box.appendChild(document.createTextNode(part));
+  });
+  box.classList.toggle('clamp', !lpExpanded);
+  requestAnimationFrame(() => {
+    const overflow = box.scrollHeight > box.clientHeight + 2;
+    more.hidden = lpExpanded ? false : !overflow;
+    more.textContent = lpExpanded ? '…less' : '…more';
+    more.classList.toggle('less', lpExpanded);
+    if (lpExpanded && !overflow && box.scrollHeight <= 62) more.hidden = true;
+  });
+}
+$('#lpMore').addEventListener('click', () => showText(!lpExpanded));
+document.querySelectorAll('.lp-size').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.lp-size').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  $('#lpCard').dataset.size = b.dataset.size;
+  try { localStorage.setItem('newsdesk.size', b.dataset.size); } catch (e) {}
+  setTimeout(() => showText(), 260);
+}));
+
+/* your name, headline and photo on the preview (saved on this device) */
+const DEFAULT_AV = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><path fill="#e7e2dc" d="M0 0h128v128H0z"/><circle cx="64" cy="52" r="26" fill="#9db3c8"/><path d="M18 128c4-26 22-40 46-40s42 14 46 40z" fill="#788fa5"/></svg>');
+const ME_KEY = 'newsdesk.me';
+const readMe = () => { try { return JSON.parse(localStorage.getItem(ME_KEY) || '{}'); } catch (e) { return {}; } };
+const saveMe = (me) => { try { localStorage.setItem(ME_KEY, JSON.stringify(me)); } catch (e) {} };
+function drawMe() {
+  const me = readMe();
+  $('#lpName').textContent = me.name || 'Jenson Jacob';   // the owner's name unless changed on this device
+  $('#lpHeadline').textContent = me.headline || 'Your headline';
+  $('#lpAv').src = me.photo || DEFAULT_AV;
+  if (document.activeElement !== $('#meName')) $('#meName').value = me.name || '';
+  if (document.activeElement !== $('#meHeadline')) $('#meHeadline').value = me.headline || '';
+}
+$('#meName').addEventListener('input', (e) => { const me = readMe(); me.name = e.target.value; saveMe(me); drawMe(); });
+$('#meHeadline').addEventListener('input', (e) => { const me = readMe(); me.headline = e.target.value; saveMe(me); drawMe(); });
+$('#mePhoto').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const img = new Image(), url = URL.createObjectURL(f);
+  img.onload = () => {                                   // shrink to 160 px so it fits in the browser's storage
+    const c = document.createElement('canvas'); c.width = c.height = 160;
+    const s = Math.min(img.width, img.height), ctx = c.getContext('2d');
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 160, 160);
+    const me = readMe(); me.photo = c.toDataURL('image/jpeg', .85); saveMe(me); drawMe(); URL.revokeObjectURL(url);
+  };
+  img.src = url;
+});
+drawMe();
+try { const sz = localStorage.getItem('newsdesk.size'); if (sz) { const b = document.querySelector('.lp-size[data-size="' + sz + '"]'); if (b) b.click(); } } catch (e) {}
+
+/* Unicode bold / italic / underline / strike for the selected text (LinkedIn has no formatting) */
+const FMT = {
+  bold: { up: 0x1D5D4, low: 0x1D5EE, dig: 0x1D7EC }, italic: { up: 0x1D608, low: 0x1D622 }, bolditalic: { up: 0x1D63C, low: 0x1D656, dig: 0x1D7EC }
+};
+function plain(s) { return s.normalize('NFKC').replace(/[̶̲]/g, ''); }
+function styleText(s, kind) {
+  if (kind === 'clear') return plain(s);
+  if (kind === 'underline' || kind === 'strike') { const mark = kind === 'underline' ? '̲' : '̶'; return Array.from(plain(s)).map(ch => /\s/.test(ch) ? ch : ch + mark).join(''); }
+  const f = FMT[kind];
+  return Array.from(plain(s)).map(ch => {
+    const c = ch.codePointAt(0);
+    if (c >= 65 && c <= 90) return String.fromCodePoint(f.up + c - 65);
+    if (c >= 97 && c <= 122) return String.fromCodePoint(f.low + c - 97);
+    if (f.dig && c >= 48 && c <= 57) return String.fromCodePoint(f.dig + c - 48);
+    return ch;
+  }).join('');
+}
+document.querySelectorAll('.ed-fmt button').forEach(b => b.addEventListener('click', () => {
+  const ta = $('#edText'); let a = ta.selectionStart, z = ta.selectionEnd;
+  if (a === z) {                                         // nothing selected: use the word under the cursor
+    const v = ta.value; while (a > 0 && /\S/.test(v[a - 1])) a--; while (z < v.length && /\S/.test(v[z])) z++;
+    if (a === z) return;
+  }
+  const out = styleText(ta.value.slice(a, z), b.dataset.fmt);
+  ta.setRangeText(out, a, z, 'select'); ta.focus(); syncEditor(false);
+}));
+
+function openPreview(r) {
+  lpExpanded = false;
+  setupEditor(r);
+  const media = $('#lpMedia');
+  media.textContent = '';
+  let host = '';
+  try { host = new URL(r.link).hostname.replace(/^www\./, ''); } catch (e) {}
+  if (r.img) {
+    const im = document.createElement('img'); im.className = 'lp-img'; im.src = r.img; im.alt = '';
+    media.appendChild(im);
+  } else {
+    const card = document.createElement('div'); card.className = 'lp-link';
+    const h = document.createElement('div'); h.className = 'h'; h.textContent = r.title;
+    const d = document.createElement('div'); d.className = 'd'; d.textContent = host;
+    card.append(h, d); media.appendChild(card);
+  }
+  $('#lpNote').textContent = (r.trending ? 'Trending on Google right now: ' + r.trending + '. ' : '')
+    + 'Hashtags come from the story\u2019s companies and subjects. Edit the text, tap Post on LinkedIn (the text is copied and LinkedIn opens with it filled in; paste it if the box is empty), add the downloaded image, then tap Mark as posted.';
+  previewRow = r;
+  const img = $('#lpImg');
+  if (r.img && !/^data:/.test(r.img)) { img.hidden = false; img.href = r.img; img.setAttribute('download', (r.title || 'news').replace(/[^A-Za-z0-9]+/g, '-').slice(0, 60) + '.jpg'); }
+  else img.hidden = true;
+  markState();
+  $('#lpLink').textContent = 'Copy link for 1st comment';
+  $('#lpOpen').href = r.link;
+  $('#lpCopy').textContent = 'Copy post text';
+  $('#lpBack').hidden = false;
+  $('#lpClose').focus();
+}
+const closePreview = () => { $('#lpBack').hidden = true; };
+$('#lpClose').addEventListener('click', closePreview);
+$('#lpBack').addEventListener('click', (e) => { if (e.target.id === 'lpBack') closePreview(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePreview(); });
+$('#lpCopy').addEventListener('click', () => {
+  const done = () => { $('#lpCopy').textContent = 'Copied'; };
+  const fallback = () => {
+    showText(true);
+    const range = document.createRange(); range.selectNodeContents($('#lpText'));
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    $('#lpCopy').textContent = 'Text selected, press Ctrl+C';
+  };
+  try { navigator.clipboard.writeText(lpFull).then(done, fallback); } catch (e) { fallback(); }
+});
+
+const BEAT_COLOR = { AI: '#7c3aed', Instrumentation: '#0284c7', Robotics: '#059669', 'UAE AI': '#db2777', UAE: '#d97706', Tech: '#d97706', 'Smart Sensors': '#ea580c', IoT: '#0d9488' };
+const parseList = (s) => { try { const v = JSON.parse(s || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+const ago = (ts) => {
+  if (!ts) return '';
+  const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60));
+  if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+  const hh = Math.round(m / 60);
+  return hh < 48 ? hh + (hh === 1 ? ' hour ago' : ' hours ago') : Math.round(hh / 24) + ' days ago';
+};
+let trTab = 'news', trSeen = null;
+function spark(series, color, w, h, area) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('aria-hidden', 'true');
+  if (!series.length) return svg;
+  const max = Math.max(1, ...series);
+  const x = (i) => (i / Math.max(1, series.length - 1)) * w, y = (v) => h - 3 - (v / max) * (h - 8);
+  const d = series.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  if (area) {
+    const id = 'g' + Math.random().toString(36).slice(2, 8);
+    const defs = document.createElementNS(ns, 'defs'), gr = document.createElementNS(ns, 'linearGradient');
+    gr.setAttribute('id', id); gr.setAttribute('x1', 0); gr.setAttribute('x2', 0); gr.setAttribute('y1', 0); gr.setAttribute('y2', 1);
+    [[0, .35], [1, 0]].forEach(([o, a]) => { const s = document.createElementNS(ns, 'stop'); s.setAttribute('offset', o); s.setAttribute('style', `stop-color:${color};stop-opacity:${a}`); gr.appendChild(s); });
+    defs.appendChild(gr); svg.appendChild(defs);
+    const fill = document.createElementNS(ns, 'path'); fill.setAttribute('d', d + ` L${w} ${h} L0 ${h} Z`); fill.setAttribute('fill', `url(#${id})`); svg.appendChild(fill);
+  }
+  const ln = document.createElementNS(ns, 'path'); ln.setAttribute('d', d); ln.setAttribute('class', 'ln');
+  ln.setAttribute('fill', 'none'); ln.setAttribute('stroke', color); ln.setAttribute('stroke-width', '2'); ln.setAttribute('stroke-linecap', 'round'); ln.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(ln);
+  const dot = document.createElementNS(ns, 'circle'); dot.setAttribute('cx', x(series.length - 1)); dot.setAttribute('cy', y(series[series.length - 1])); dot.setAttribute('r', 3); dot.setAttribute('fill', color);
+  svg.appendChild(dot);
+  return svg;
+}
+let trKey = '';
+function drawTrends(force) {
+  const d = dash.data('trends');
+  const list = $('#trList'), track = $('#trTrack');
+  if (d.status !== 'ok') { if (d.status !== 'loading') list.classList.remove('dash-skeleton'); return; }
+  list.classList.remove('dash-skeleton');
+  const k0 = trTab + '|' + (d.data[0] && d.data[0].updated) + '|' + d.data.length;
+  if (!force && k0 === trKey) return;
+  trKey = k0;
+  const news = d.data.filter(r => r.kind === 'news').slice(0, 12);
+  const goog = d.data.filter(r => r.kind === 'google');
+  $('#nNews').textContent = fmt(news.length); $('#nGoogle').textContent = fmt(goog.length);
+  $('#tabNews').setAttribute('aria-selected', String(trTab === 'news'));
+  $('#tabGoogle').setAttribute('aria-selected', String(trTab === 'google'));
+  const rows = trTab === 'news' ? news : goog;
+  const prev = trSeen; trSeen = new Set(news.map(r => r.term));
+  list.textContent = '';
+  const hdr = document.createElement('div'); hdr.className = 'gt-row gt-hdr'; hdr.setAttribute('role', 'row');
+  ['Trend', trTab === 'news' ? 'Stories (6 h)' : 'Search volume', 'Started', trTab === 'news' ? 'Trend breakdown' : 'In the news', trTab === 'news' ? 'Last 30 h' : ''].forEach(h => { const s = document.createElement('span'); s.textContent = h; hdr.appendChild(s); });
+  list.appendChild(hdr);
+  if (!rows.length) {
+    const e = document.createElement('div'); e.className = 'gt-empty';
+    e.textContent = trTab === 'news' ? 'Not enough fresh stories yet to call a trend.' : 'No tech or AI topic in Google’s top searches right now. Google lists only the top 10 searches per country.';
+    list.appendChild(e);
+  }
+  rows.forEach((r, k) => {
+    const color = BEAT_COLOR[r.beat] || BEAT_COLOR.AI;
+    const row = document.createElement('button');
+    row.type = 'button'; row.className = 'gt-row rise' + (trTab === 'news' && prev && !prev.has(r.term) ? ' tr-new' : '');
+    row.style.setProperty('--d', (k * 50) + 'ms'); row.setAttribute('role', 'row');
+    row.addEventListener('click', () => openKeyword(r));
+    const term = document.createElement('span'); term.className = 'gt-term';
+    const tb = document.createElement('b'); tb.textContent = trTab === 'news' ? r.hashtag : r.term;
+    const ts = document.createElement('small'); ts.textContent = trTab === 'news' ? r.beat + ' · ' + (r.headline || '') : (r.geo + ' · ' + (r.headline || ''));
+    term.append(tb, ts);
+    const vol = document.createElement('span'); vol.className = 'gt-vol';
+    const vb = document.createElement('b'); const vs = document.createElement('small');
+    if (trTab === 'news') {
+      vb.textContent = fmt(r.count);
+      vs.textContent = (r.change > 0 ? '▲ ' : '▼ ') + fmt(Math.abs(r.change)) + '%'; vs.className = r.change > 0 ? 'tr-up' : 'tr-down';
+    } else { vb.textContent = r.traffic || '—'; vs.textContent = 'searches'; vs.className = 'tr-down'; }
+    vol.append(vb, vs);
+    const start = document.createElement('span'); start.className = 'gt-start';
+    const sa = document.createElement('span'); sa.textContent = ago(r.started);
+    const act = document.createElement('span'); act.className = 'gt-active' + (r.active === 'Yes' ? '' : ' off');
+    act.appendChild(document.createElement('i')); act.append(r.active === 'Yes' ? 'Active' : 'Cooling');
+    start.append(sa, act);
+    const chips = document.createElement('span'); chips.className = 'gt-chips';
+    const items = trTab === 'news' ? parseList(r.related) : parseList(r.stories).map(s => s.source || s.title);
+    items.slice(0, 2).forEach(c => { const s = document.createElement('span'); s.textContent = c; chips.appendChild(s); });
+    if (items.length > 2) { const s = document.createElement('span'); s.className = 'more'; s.textContent = '+ ' + (items.length - 2) + ' more'; chips.appendChild(s); }
+    const sp = document.createElement('span'); sp.className = 'gt-spark';
+    if (trTab === 'news') sp.appendChild(spark(parseList(r.series), color, 110, 34, false));
+    row.append(term, vol, start, chips, sp);
+    list.appendChild(row);
+  });
+  track.textContent = '';
+  const tick = news.map(r => [r.hashtag, (r.change > 0 ? '▲' : '▼') + Math.abs(r.change) + '%']).concat(goog.map(r => [r.term, r.geo]));
+  [0, 1].forEach(() => tick.forEach(([w, x]) => { const b = document.createElement('b'); b.textContent = w; const e = document.createElement('em'); e.textContent = x; b.appendChild(e); track.appendChild(b); }));
+  const when = d.data[0] && d.data[0].updated;
+  if (when) $('#trNote').textContent = 'Keywords rising in AI, instrumentation and robotics news (last 6 hours vs the 24 before) and Google Trends searches about tech in 10 countries. Updated ' + t12(when.slice(11)) + ' · sweeps every 15 minutes. Tap a trend to see its stories.';
+}
+$('#tabNews').addEventListener('click', () => { trTab = 'news'; drawTrends(true); });
+$('#tabGoogle').addEventListener('click', () => { trTab = 'google'; drawTrends(true); });
+
+function storyRow(link) {
+  const news = dash.data('today_news');
+  return news.status === 'ok' ? news.data.find(r => r.link === link) : null;
+}
+function openKeyword(r) {
+  const isNews = r.kind === 'news';
+  const color = BEAT_COLOR[r.beat] || BEAT_COLOR.AI;
+  $('#kwEyebrow').textContent = isNews ? 'Rising in ' + r.beat + ' news' : 'Google Trends · ' + r.geo;
+  $('#kwTitle').textContent = isNews ? r.hashtag : r.term;
+  const stats = $('#kwStats'); stats.textContent = '';
+  const add = (label, val) => { const s = document.createElement('span'); const b = document.createElement('b'); b.textContent = val; s.append(label + ' ', b); stats.appendChild(s); };
+  if (isNews) { add('Stories, last 6 h', fmt(r.count)); add('Change', (r.change > 0 ? '+' : '') + fmt(r.change) + '%'); add('Started', ago(r.started)); }
+  else { add('Searches', r.traffic || '—'); add('Started', ago(r.started)); }
+  const ch = $('#kwChart'); ch.textContent = '';
+  if (isNews) ch.appendChild(spark(parseList(r.series), color, 600, 120, true));
+  ch.hidden = !isNews;
+  const rel = $('#kwRel'); rel.textContent = '';
+  if (isNews) parseList(r.related).forEach(tag => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = tag;
+    const other = dash.data('trends').data.find(x => x.kind === 'news' && x.hashtag === tag);
+    if (other) b.addEventListener('click', () => openKeyword(other)); else b.disabled = true;
+    rel.appendChild(b);
+  });
+  rel.hidden = !isNews;
+  const list = $('#kwList'); list.textContent = '';
+  const stories = parseList(r.stories);
+  if (!stories.length) { const p = document.createElement('div'); p.className = 'note'; p.textContent = 'No stories listed for this trend.'; list.appendChild(p); }
+  stories.forEach(s => {
+    const it = document.createElement('div'); it.className = 'kw-item';
+    const txt = document.createElement('div');
+    const tt = document.createElement('div'); tt.className = 't'; tt.textContent = s.title;
+    const ss = document.createElement('div'); ss.className = 's'; ss.textContent = [s.source, ago(s.ts)].filter(Boolean).join(' · ');
+    txt.append(tt, ss);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    const found = storyRow(s.link);
+    if (found) { const pb = document.createElement('button'); pb.type = 'button'; pb.className = 'chip'; pb.textContent = 'Preview post'; pb.addEventListener('click', () => { closeKeyword(); openPreview(found); }); acts.appendChild(pb); }
+    const a = document.createElement('a'); a.className = 'chip'; a.href = s.link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open ↗'; acts.appendChild(a);
+    it.append(txt, acts); list.appendChild(it);
+  });
+  $('#kwExplore').href = r.explore || ('https://trends.google.com/trends/explore?q=' + encodeURIComponent(r.term));
+  $('#kwBack').hidden = false;
+  $('#kwClose').focus();
+}
+const closeKeyword = () => { $('#kwBack').hidden = true; };
+$('#kwClose').addEventListener('click', closeKeyword);
+$('#kwBack').addEventListener('click', (e) => { if (e.target.id === 'kwBack') closeKeyword(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKeyword(); });
+
+/* auto-sync dial: counts down to the next automatic check, spins while checking, flashes when new data arrived */
+(function syncDial() {
+  const R = 2 * Math.PI * 18, el = $('#sync'), arc = $('#syncArc'), lab = $('#syncL'), txt = $('#syncT'), bar = $('#syncBar');
+  arc.style.strokeDasharray = R;
+  let state = null, flashUntil = 0, lastSeenChange = 0;
+  dash.onSync((s) => {
+    state = s;
+    if (s.lastChange && s.lastChange !== lastSeenChange) { lastSeenChange = s.lastChange; flashUntil = Date.now() + 4000; }
+    draw();
+  });
+  function draw() {
+    if (!state) return;
+    const now = Date.now();
+    const left = Math.max(0, state.nextAt - now), done = 1 - left / state.every;
+    el.classList.toggle('checking', state.checking);
+    el.classList.toggle('fresh', now < flashUntil);
+    if (state.checking) { lab.textContent = 'Syncing'; txt.textContent = 'now'; }
+    else if (now < flashUntil) { lab.textContent = 'New data'; txt.textContent = 'updated'; }
+    else { lab.textContent = 'Next auto sync'; const sec = Math.ceil(left / 1000); txt.textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+    arc.style.strokeDashoffset = state.checking ? R * 0.75 : R * (1 - done);
+    bar.style.transform = 'scaleX(' + (state.checking ? 1 : done) + ')';
+  }
+  draw(); setInterval(draw, 1000);
+
+  // after each sync: "+N new stories" (counting up), "Trends updated", or a brief "Up to date"
+  const badge = $('#syncNew'); let lastResult = 0, hideTimer = null;
+  dash.onSync((s) => {
+    const r = s.result;
+    if (!r || r.at === lastResult) return;
+    lastResult = r.at; clearTimeout(hideTimer); badge.classList.remove('leaving', 'quiet'); badge.textContent = '';
+    if (r.stories > 0) {
+      const b = document.createElement('b'); b.textContent = '+0'; badge.append(b, ' new ' + (r.stories === 1 ? 'story' : 'stories') + (r.trends ? ' · trends updated' : ''));
+      badge.hidden = false; badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
+      const t0 = performance.now(), n = r.stories, dur = MOTION ? 900 : 0;
+      const step = (now) => { const k = dur ? Math.min(1, (now - t0) / dur) : 1; b.textContent = '+' + Math.round(n * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+      hideTimer = setTimeout(() => { badge.classList.add('leaving'); setTimeout(() => { badge.hidden = true; badge.classList.remove('leaving'); }, 400); }, 60000);
+    } else {
+      badge.classList.add('quiet'); badge.textContent = r.trends ? '✓ Trends updated' : '✓ Up to date';
+      badge.hidden = false; badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
+      hideTimer = setTimeout(() => { badge.classList.add('leaving'); setTimeout(() => { badge.hidden = true; badge.classList.remove('leaving'); }, 400); }, 4000);
+    }
+  });
+})();
+
+/* ---------- insights: brief, plan, launches, deals, events, posted ---------- */
+const GLOSSARY = {
+  'SIL': 'Safety Integrity Level: how much risk reduction a safety function gives (IEC 61508/61511).',
+  'SIS': 'Safety Instrumented System: the sensors, logic and valves that bring a process to a safe state.',
+  'HART': 'Digital protocol carried on a 4-20 mA loop, used to configure and diagnose field instruments.',
+  'PROFINET': 'Industrial Ethernet standard for automation, widely used with Siemens systems.',
+  'Ethernet-APL': 'Advanced Physical Layer: two-wire Ethernet for field instruments, including hazardous areas.',
+  'APL': 'Ethernet Advanced Physical Layer: two-wire Ethernet down to field instruments.',
+  'ATEX': 'EU rules for equipment used in explosive atmospheres.',
+  'IECEx': 'International certification scheme for equipment in explosive atmospheres.',
+  'smart sensor': 'A sensor with its own processor: it checks itself, filters data and talks digitally, not just 4-20 mA.',
+  'IO-Link': 'Point-to-point digital link for sensors and actuators (IEC 61131-9) carrying data, settings and diagnostics.',
+  'MEMS': 'Micro-electro-mechanical systems: tiny machined sensors on a chip, such as accelerometers and pressure cells.',
+  'LoRaWAN': 'Long-range, low-power wireless network for battery sensors spread over a site.',
+  'predictive maintenance': 'Fixing equipment before it fails, using sensor data such as vibration and temperature trends.',
+  'condition monitoring': 'Continuous measurement of machine health (vibration, temperature, oil) to spot faults early.',
+  'Coriolis': 'Flowmeter that measures mass flow directly from the twisting of vibrating tubes.',
+  'DCS': 'Distributed Control System: plant-wide process control, typical in oil, gas and chemicals.',
+  'SCADA': 'Supervisory control and data acquisition: remote monitoring of spread-out assets.',
+  'PLC': 'Programmable Logic Controller: rugged computer that runs machine and process logic.',
+  'OPC UA': 'Vendor-neutral standard for secure industrial data exchange.',
+  'IIoT': 'Industrial Internet of Things: connected sensors and machines in industry.',
+  'digital twin': 'A live software model of a plant or asset, fed by real measurements.',
+  'LNG': 'Liquefied natural gas.',
+  'NAMUR': 'User association of the process industry that writes widely used automation recommendations.',
+  'IEC 62443': 'The main cybersecurity standard series for industrial automation and control systems.',
+  'IEC 61511': 'Functional safety standard for safety instrumented systems in the process industry.',
+  'LLM': 'Large language model, the kind of AI behind chatbots such as ChatGPT and Claude.',
+  'MoU': 'Memorandum of understanding: a formal agreement to work together, usually before a contract.',
+  'EPC': 'Engineering, procurement and construction contractor that delivers a plant end to end.',
+  'FID': 'Final investment decision: the point where a project is approved and funded.'
+};
+const GL_RX = new RegExp('\\b(' + Object.keys(GLOSSARY).sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i');
+function glossify(el) {
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nodes = []; while (walk.nextNode()) nodes.push(walk.currentNode);
+  nodes.forEach(node => {
+    const m = node.nodeValue.match(GL_RX);
+    if (!m || (node.parentNode && node.parentNode.tagName === 'ABBR')) return;
+    const key = Object.keys(GLOSSARY).find(k => k.toLowerCase() === m[1].toLowerCase());
+    const after = node.splitText(m.index); after.nodeValue = after.nodeValue.slice(m[1].length);
+    const ab = document.createElement('abbr'); ab.className = 'gl'; ab.title = GLOSSARY[key]; ab.textContent = m[1];
+    node.parentNode.insertBefore(ab, after);
+  });
+}
+const LAUNCH_RX = /\b(launch(es|ed)?|introduc(es|ed|ing)|unveil(s|ed)?|debut(s|ed)?|releases?|rolls? out|new (generation|series|range|line)|expands? (its )?(portfolio|range))\b/i;
+const NOISE_RX = /police|crime|arrest|court|jail|prison|murder|accident|crash|weather|rain|traffic fine|gang|fraud|celebrity|football|cricket|wedding|flights?|cancell|attack|missile|\bwar\b|evacuat|airstrike|blockade|killed|terror|hostage|\bdies\b|\bdied\b|\bdeath\b|obituary|funeral/i;
+const DEAL_RX = /\b(contracts?|awarded|awards? (a |the )?contract|wins? (a |the )?contract|tender|EPC|MoU|memorandum|agreement|signs?|signed|partnership|partners with|joint venture|JV|acquires?|acquisition|invest(s|ment)?|deal|FID|commission(s|ed)?|framework)\b/i;
+const SPEC_RX = [
+  [/\bSIL ?[1-4]\b/i, m => m[0].toUpperCase().replace(' ', '')], [/\bATEX\b/i, () => 'ATEX'], [/\bIECEx\b/i, () => 'IECEx'], [/\bIP6[5-9]K?\b/i, m => m[0].toUpperCase()],
+  [/\bHART\b/, () => 'HART'], [/\bPROFINET\b/i, () => 'PROFINET'], [/Ethernet[- ]APL|\bAPL\b/, () => 'Ethernet-APL'], [/\bModbus\b/i, () => 'Modbus'], [/\bIO-Link\b/i, () => 'IO-Link'],
+  [/4[–-]20 ?mA/i, () => '4-20 mA'], [/\bBluetooth\b/i, () => 'Bluetooth'], [/\bwireless\b/i, () => 'Wireless'], [/\bOPC ?UA\b/i, () => 'OPC UA'], [/\bAI\b/, () => 'AI'],
+  [/\bcoriolis\b/i, () => 'Coriolis'], [/\bultrasonic\b/i, () => 'Ultrasonic'], [/\bradar\b/i, () => 'Radar'], [/\bmagnetic flow|\bmagmeter\b/i, () => 'Electromagnetic'],
+  [/\btransmitters?\b/i, () => 'Transmitter'], [/\bflow ?meters?\b/i, () => 'Flowmeter'], [/\banaly[sz]ers?\b/i, () => 'Analyzer'], [/\bvalves?\b/i, () => 'Valve'], [/\bactuators?\b/i, () => 'Actuator'],
+  [/\bsensors?\b/i, () => 'Sensor'], [/\bcontrollers?\b|\bPLC\b/i, () => 'Controller'], [/\bdrives?\b|\bservo\b/i, () => 'Drive'], [/\bcobots?\b|\brobots?\b/i, () => 'Robot'], [/\bcamera|vision\b/i, () => 'Vision']
+];
+const specsOf = (text) => { const out = []; SPEC_RX.forEach(([rx, f]) => { const m = text.match(rx); if (m) { const v = f(m); if (!out.includes(v)) out.push(v); } }); return out; };
+const companiesOf = (r) => (r.tags || '').split(/\s+/).filter(x => /^#[A-Z]/.test(x) && !/^#(AI|UAE|ArtificialIntelligence|Instrumentation|ProcessAutomation|Robotics|Automation|MiddleEast|UAEAI)$/.test(x)).slice(0, 3);
+const EVENTS = [
+  { name: 'ADIPEC 2026', where: 'ADNEC, Abu Dhabi', start: '2026-11-02', end: '2026-11-05', c: '#ffc457', about: 'the world’s largest energy exhibition, hosted by ADNOC' },
+  { name: 'SPS 2026', where: 'Nuremberg, Germany', start: '2026-11-24', end: '2026-11-26', c: '#3fe0ff', about: 'the leading fair for smart and digital automation' },
+  { name: 'Hannover Messe 2027', where: 'Hannover, Germany', start: '2027-04-05', end: '2027-04-08', c: '#a68bff', about: 'the world’s biggest industrial technology fair' },
+  { name: 'Middle East Energy 2027', where: 'Dubai Exhibition Centre, Expo City', start: '2027-05-11', end: '2027-05-13', c: '#46f0a4', about: 'the region’s main power and energy event' },
+  { name: 'ACHEMA 2027', where: 'Frankfurt, Germany', start: '2027-06-14', end: '2027-06-18', c: '#ff6fcf', about: 'the triennial world fair for the process industries' }
+];
+const dubaiDate = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(d);   // YYYY-MM-DD
+function nextSlots(n) {   // next weekdays from tomorrow, Dubai time
+  const out = []; let d = new Date(Date.now() + 86400000);
+  while (out.length < n) { const day = new Date(dubaiDate(d) + 'T12:00:00Z').getUTCDay(); if (day >= 2 && day <= 5) out.push(dubaiDate(d)); d = new Date(d.getTime() + 86400000); }   // Tue-Fri: skip Monday mornings and weekends
+  return out;
+}
+function bestTime() {   // general LinkedIn guidance for a Gulf B2B audience: Tue-Thu, 8-10 AM local
+  let d = new Date();
+  for (let k = 0; k < 8; k++) {
+    const iso = dubaiDate(d), day = new Date(iso + 'T12:00:00Z').getUTCDay();
+    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', hour12: false }).format(d));
+    if (day >= 2 && day <= 5 && (k > 0 || hour < 9)) return dayName(iso) + ', 8:30–10:00 AM AST';
+    d = new Date(d.getTime() + 86400000);
+  }
+  return 'Tue–Fri, 8:30–10:00 AM AST';
+}
+function scored(news) {
+  const hot = hotTags(), n = news.data.length || 1;
+  return news.data.map((r, i) => { const launch = LAUNCH_RX.test(r.title) && (r.topic === 'Instrumentation' || r.topic === 'Robotics' || r.topic === 'Smart Sensors'); const noise = NOISE_RX.test(r.title); return { r, i, hot: isHot(r, hot), launch, noise, s: (isHot(r, hot) ? 4 : 0) + (r.image === 'Article' ? 1 : 0) + (launch ? 1 : 0) + 2 * (1 - i / n) - (noise ? 10 : 0) }; });
+}
+function item(r, extra, cls) {
+  const b = document.createElement('button'); b.type = 'button'; if (cls) b.className = cls;
+  b.style.setProperty('--c', TOPIC_COLOR[r.topic] || TOPIC_COLOR.AI);
+  b.addEventListener('click', () => openPreview(r));
+  const box = document.createElement('div');
+  const tt = document.createElement('div'); tt.className = cls === 'ri' ? 'rt' : 'bt'; tt.textContent = r.title;
+  const ss = document.createElement('div'); ss.className = cls === 'ri' ? 'rm' : 'bs'; ss.textContent = [r.topic, dayName(r.date) + ' ' + t12(r.time), hostOf(r.link)].join('  ·  ');
+  box.append(tt, ss); if (extra) box.appendChild(extra);
+  if (cls === 'ri') { b.append(tt, ss); if (extra) b.appendChild(extra); } else b.appendChild(box);
+  return b;
+}
+let briefRows = [], planRows = [];
+function drawInsights(news, latest) {
+  const all = scored(news).filter(x => !x.noise).sort((a, b) => b.s - a.s);
+  // morning brief: latest day, one per topic first
+  const day = all.filter(x => x.r.date === latest), used = new Set(), brief = [];
+  TOPICS.slice(1).forEach(tp => { const x = day.find(y => y.r.topic === tp && !used.has(y.i)); if (x && brief.length < 5) { brief.push(x); used.add(x.i); } });
+  day.forEach(x => { if (brief.length < 5 && !used.has(x.i)) { brief.push(x); used.add(x.i); } });
+  brief.sort((a, b) => b.s - a.s); briefRows = brief.map(x => x.r);
+  const bl = $('#briefList'); bl.textContent = '';
+  if (!brief.length) bl.innerHTML = '<li class="empty">No stories on the latest day yet.</li>';
+  brief.forEach(x => { const li = document.createElement('li'); li.appendChild(item(x.r)); bl.appendChild(li); });
+  // weekly plan, 4 posts: Tue instrumentation/sensor launch, Wed AI, Thu UAE, Fri robotics/IoT
+  const themes = [r => r.topic === 'Instrumentation' || r.topic === 'Smart Sensors', r => r.topic === 'AI' || r.topic === 'UAE AI', r => r.topic === 'UAE' || r.topic === 'UAE AI', r => r.topic === 'Robotics' || r.topic === 'IoT'];
+  const slots = nextSlots(4), pu = new Set(); planRows = [];
+  const pl = $('#planList'); pl.textContent = '';
+  slots.forEach((iso, k) => {
+    const pick = all.find(x => !pu.has(x.i) && themes[k](x.r) && (k !== 0 || x.launch)) || all.find(x => !pu.has(x.i) && themes[k](x.r)) || all.find(x => !pu.has(x.i));
+    if (!pick) return;
+    pu.add(pick.i); planRows.push([iso, pick.r]);
+    const b = item(pick.r);
+    const dd = document.createElement('div'); dd.className = 'pd'; dd.textContent = d3.utcFormat('%a %-d')(new Date(iso + 'T00:00:00Z'));
+    const sm = document.createElement('small'); sm.textContent = '8:30 AM'; dd.appendChild(sm);
+    b.prepend(dd); pl.appendChild(b);
+  });
+  // smart sensor radar: technologies mentioned across sensor stories
+  const sensorRows = all.filter(x => x.r.topic === 'Smart Sensors' || /\bsensors?\b|transmitter/i.test(x.r.title)).sort((a, b) => a.i - b.i);
+  const TECH = [
+    ['Wireless / IIoT', /wireless|IIoT|industrial IoT|LoRaWAN|5G|Bluetooth|cloud/i], ['Edge AI / analytics', /\bAI\b|machine learning|edge|analytics/i],
+    ['Predictive maintenance', /predictive|condition monitoring|vibration/i], ['IO-Link', /IO-Link/i], ['Ethernet-APL / PROFINET', /Ethernet-APL|\bAPL\b|PROFINET|Ethernet/i],
+    ['HART / 4-20 mA', /\bHART\b|4[–-]20 ?mA/i], ['Pressure', /pressure/i], ['Flow', /\bflow/i], ['Level', /\blevel\b|radar level/i], ['Temperature', /temperature|thermal/i],
+    ['Gas / analytical', /\bgas\b|analy[sz]er|emission/i], ['Vision / LiDAR', /vision|camera|lidar|optical/i], ['Safety / SIL / Ex', /\bSIL\b|ATEX|IECEx|hazardous|safety/i], ['MEMS', /\bMEMS\b/i]
+  ].map(([name, rx]) => ({ name, rows: sensorRows.filter(x => rx.test(x.r.title + ' ' + (x.r.summary || ''))) })).filter(t => t.rows.length).sort((a, b) => b.rows.length - a.rows.length);
+  const sb = $('#srBars'), sl = $('#srList'); sb.textContent = '';
+  const maxT = d3.max(TECH, t => t.rows.length) || 1;
+  const showSensors = (rows, label) => {
+    sl.textContent = '';
+    if (!rows.length) { sl.innerHTML = '<div class="empty">No smart sensor stories in the current news.</div>'; return; }
+    rows.slice(0, 10).forEach(x => {
+      const sp = document.createElement('div'); sp.className = 'specs';
+      specsOf(x.r.title + ' ' + (x.r.summary || '')).slice(0, 5).forEach(v => { const s = document.createElement('span'); s.textContent = v; sp.appendChild(s); });
+      const b = item(x.r, sp.childNodes.length ? sp : null, 'ri'); glossify(b); sl.appendChild(b);
+    });
+  };
+  if (!TECH.length) sb.innerHTML = '<div class="empty">No sensor technology mentioned yet.</div>';
+  TECH.forEach(tk => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sr-row'; b.setAttribute('aria-pressed', 'false');
+    const n1 = document.createElement('b'); n1.textContent = tk.name;
+    const bar = document.createElement('span'); bar.className = 'tr-bar'; const fill = document.createElement('i'); fill.style.width = (100 * tk.rows.length / maxT) + '%'; bar.appendChild(fill);
+    const c = document.createElement('span'); c.textContent = fmt(tk.rows.length);
+    b.append(n1, bar, c);
+    b.addEventListener('click', () => {
+      const on = b.getAttribute('aria-pressed') !== 'true';
+      sb.querySelectorAll('.sr-row').forEach(x => x.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', String(on));
+      showSensors(on ? tk.rows : sensorRows);
+    });
+    sb.appendChild(b);
+  });
+  showSensors(sensorRows);
+  // launch radar
+  const ll = $('#launchList'); ll.textContent = '';
+  const launches = all.filter(x => x.launch && (x.r.topic === 'Instrumentation' || x.r.topic === 'Robotics' || x.r.topic === 'Smart Sensors')).sort((a, b) => a.i - b.i).slice(0, 12);
+  if (!launches.length) ll.innerHTML = '<div class="empty">No product launches in the current stories.</div>';
+  launches.forEach(x => {
+    const sp = document.createElement('div'); sp.className = 'specs';
+    specsOf(x.r.title + ' ' + (x.r.summary || '')).concat(companiesOf(x.r)).slice(0, 7).forEach(v => { const s = document.createElement('span'); s.textContent = v; sp.appendChild(s); });
+    const b = item(x.r, sp.childNodes.length ? sp : null, 'ri'); glossify(b); ll.appendChild(b);
+  });
+  // UAE deals
+  const dl = $('#dealList'); dl.textContent = '';
+  const deals = all.filter(x => (x.r.topic === 'UAE' || x.r.topic === 'UAE AI') && DEAL_RX.test(x.r.title)).sort((a, b) => a.i - b.i).slice(0, 12);
+  if (!deals.length) dl.innerHTML = '<div class="empty">No contracts or agreements in the current UAE stories.</div>';
+  deals.forEach(x => {
+    const sp = document.createElement('div'); sp.className = 'specs';
+    const kind = (x.r.title.match(DEAL_RX) || [''])[0];
+    [kind.toUpperCase()].concat(companiesOf(x.r)).filter(Boolean).forEach(v => { const s = document.createElement('span'); s.textContent = v; sp.appendChild(s); });
+    const b = item(x.r, sp, 'ri'); glossify(b); dl.appendChild(b);
+  });
+}
+function drawEvents() {
+  const box = $('#eventList'); box.textContent = '';
+  const today = new Date(dubaiDate(new Date()) + 'T00:00:00Z');
+  EVENTS.filter(e => new Date(e.end + 'T00:00:00Z') >= today).forEach(e => {
+    const s = new Date(e.start + 'T00:00:00Z'), days = Math.round((s - today) / 86400000);
+    const ev = document.createElement('div'); ev.className = 'ev'; ev.style.setProperty('--c', e.c);
+    const dd = document.createElement('div'); dd.className = 'days';
+    dd.textContent = days > 0 ? fmt(days) : 'NOW'; const sm = document.createElement('small'); sm.textContent = days > 0 ? (days === 1 ? 'DAY' : 'DAYS') : 'ON'; dd.appendChild(sm);
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = e.name;
+    const wh = document.createElement('div'); wh.className = 'wh'; wh.textContent = d3.utcFormat('%-d %b')(s) + ' – ' + d3.utcFormat('%-d %b %Y')(new Date(e.end + 'T00:00:00Z')) + ' · ' + e.where;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = 'Post idea';
+    b.addEventListener('click', () => openPreview({
+      title: (days > 0 ? fmt(days) + ' days to ' : 'Happening now: ') + e.name,
+      summary: e.name + ' (' + wh.textContent + ') is ' + e.about + '. Who is going? Tell me what you most want to see — I will share my notes from the floor.',
+      link: 'https://www.google.com/search?q=' + encodeURIComponent(e.name), topic: /Abu Dhabi|Dubai/.test(e.where) ? 'UAE' : 'Instrumentation', img: '',
+      tags: '#' + e.name.replace(/[^A-Za-z0-9]/g, '') + ' #Automation #Instrumentation #Events' + (/Abu Dhabi|Dubai/.test(e.where) ? ' #UAE' : '')
+    }));
+    ev.append(dd, nm, wh, b); box.appendChild(ev);
+  });
+}
+const POSTED_KEY = 'newsdesk.posted';
+const readPosted = () => { try { return JSON.parse(localStorage.getItem(POSTED_KEY) || '[]'); } catch (e) { return []; } };
+const writePosted = (list) => { try { localStorage.setItem(POSTED_KEY, JSON.stringify(list.slice(0, 200))); } catch (e) {} };
+let previewRow = null;
+function drawPostCounts(bump) {
+  const rows = readPosted();
+  const now = new Date(), dubai = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Dubai' }));
+  const monday = new Date(dubai); monday.setHours(0, 0, 0, 0); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));   // week starts Monday, UAE time
+  const weekStart = now.getTime() - (dubai.getTime() - monday.getTime());
+  const week = rows.filter(r => r.at * 1000 >= weekStart).length;
+  $('#postWeek').textContent = fmt(week); $('#postTotal').textContent = fmt(rows.length);
+  $('#postGoal').style.width = Math.min(100, week / 4 * 100) + '%';
+  const tiles = document.querySelectorAll('.kpi.mine');
+  tiles[0].classList.toggle('done', week >= 4);
+  if (bump) tiles.forEach(el => { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); });
+}
+function drawPosted() {
+  const box = $('#postedList'), rows = readPosted();
+  box.textContent = '';
+  if (!rows.length) { box.innerHTML = '<div class="empty">Nothing marked yet. After you post a story, tap Mark as posted in its preview.</div>'; return; }
+  rows.forEach(r => {
+    const a = document.createElement('a'); a.className = 'ri'; a.href = r.link; a.target = '_blank'; a.rel = 'noopener';
+    a.style.setProperty('--c', TOPIC_COLOR[r.topic] || TOPIC_COLOR.AI); a.style.textDecoration = 'none';
+    const tt = document.createElement('div'); tt.className = 'rt'; tt.textContent = r.title;
+    const ss = document.createElement('div'); ss.className = 'rm'; ss.textContent = ['Posted ' + ago(r.at), r.topic].filter(Boolean).join('  ·  ');
+    a.append(tt, ss); box.appendChild(a);
+  });
+}
+function markState() {
+  const done = previewRow && readPosted().some(x => x.link === previewRow.link);
+  $('#lpMark').textContent = done ? '✓ Posted' : 'Mark as posted';
+  $('#lpMark').setAttribute('aria-pressed', String(!!done));
+}
+$('#lpMark').addEventListener('click', () => {
+  if (!previewRow) return;
+  let list = readPosted();
+  if (list.some(x => x.link === previewRow.link)) list = list.filter(x => x.link !== previewRow.link);
+  else list.unshift({ title: previewRow.title, link: previewRow.link, topic: previewRow.topic, at: Math.floor(Date.now() / 1000) });
+  writePosted(list); markState(); drawPosted(); drawPostCounts(true);
+});
+$('#lpLink').addEventListener('click', () => {
+  if (!previewRow) return;
+  const ok = () => { $('#lpLink').textContent = 'Link copied: paste it as your first comment'; };
+  try { navigator.clipboard.writeText(previewRow.link).then(ok, () => { $('#lpLink').textContent = previewRow.link; }); } catch (e) { $('#lpLink').textContent = previewRow.link; }
+});
+$('#lpPost').addEventListener('click', () => {
+  const text = lpFull;
+  $('#lpPost').href = 'https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(text);
+  try { navigator.clipboard.writeText(text).catch(() => {}); } catch (e) {}
+});
+drawPosted();
+drawPostCounts();
+$('#planCopy').addEventListener('click', () => {
+  const txt = planRows.map(([iso, r]) => d3.utcFormat('%A %-d %b')(new Date(iso + 'T00:00:00Z')) + ', 8:30 AM AST — ' + r.title + '\n' + r.link).join('\n\n');
+  const ok = () => { $('#planCopy').textContent = 'Copied'; };
+  try { navigator.clipboard.writeText(txt).then(ok, () => { $('#planCopy').textContent = 'Copy failed'; }); } catch (e) { $('#planCopy').textContent = 'Copy failed'; }
+});
+$('#listenBtn').addEventListener('click', () => {
+  const synth = window.speechSynthesis;
+  if (!synth) { $('#listenBtn').textContent = 'Not available'; return; }
+  if (synth.speaking) { synth.cancel(); $('#listenBtn').textContent = '▶ Listen'; return; }
+  const u = new SpeechSynthesisUtterance('Your morning brief. ' + briefRows.map((r, k) => 'Story ' + (k + 1) + ', ' + r.topic + '. ' + r.title + '.').join(' '));
+  u.rate = 1; u.onend = () => { $('#listenBtn').textContent = '▶ Listen'; };
+  try { synth.speak(u); $('#listenBtn').textContent = '■ Stop'; } catch (e) { $('#listenBtn').textContent = 'Not available'; }
+});
+drawEvents();
+
+let lastHourKey = '';
+dash.onData(() => {
+  const sum = dash.data('summary'), news = dash.data('today_news');
+  const total = sum.status === 'ok' ? (sum.data[0].total || 1) : 1;
+  document.querySelectorAll('.kpi:not(.mine)').forEach(tile => {
+    const e = tile.querySelector('.big'), f = e.getAttribute('data-field');
+    e.classList.toggle('dash-skeleton', sum.status === 'loading');
+    if (sum.status !== 'ok') { e.textContent = '—'; return; }
+    const v = sum.data[0][f];
+    countTo(e, v);
+    const share = ['total', 'week', 'working'].includes(f) ? 1 : Math.min(1, v / total);
+    const arc = tile.querySelector('.arc'), len = 2 * Math.PI * 15;
+    arc.style.strokeDasharray = len;
+    requestAnimationFrame(() => { arc.style.strokeDashoffset = len * (1 - share); });   // fill up from empty
+  });
+  let latest = '';
+  if (sum.status === 'ok') {
+    const s = sum.data[0];
+    latest = s.latest;
+    $('#labTotal').textContent = 'Stories ' + dayName(latest);
+    $('#hourNote').textContent = dayName(latest) + ' · Arabian Standard Time';
+    $('#take').textContent = 'Live news for instrumentation, AI, robotics and the UAE. Pick a topic, tap a story, and see it as a LinkedIn post.';
+  }
+
+  const hr = dash.data('byhour'), hc = $('#hourChart');
+  if (hr.status === 'ok') {
+    hc.classList.remove('dash-skeleton');
+    const last = d3.max(hr.data.filter(r => r.count > 0), r => Number(r.hour)) ?? 0;
+    const rows = hr.data.filter(r => Number(r.hour) <= Math.max(last, 6));
+    const key = JSON.stringify(rows) + '|' + hc.clientWidth;
+    if (key !== lastHourKey) { lastHourKey = key; hourChart(hc, rows); }
+  }
+  const trBefore = trKey;
+  drawTrends();
+  if (trKey !== trBefore && feedCtx) { drawFeed(); drawInsights(feedCtx.news, feedCtx.latest); }
+
+  if (news.status === 'ok') {
+    renderNews(news, latest);
+    const f = news.data.reduce((m, r) => (r.fetched > m ? r.fetched : m), '');
+    if (f) {   // how many stories the latest feed update added, and how many are on the dashboard
+      const added = news.data.filter(r => (r.added || r.fetched) === f).length;
+      const key = f + '|' + added + '|' + news.data.length, box = $('#upd');
+      if (box.dataset.key !== key) {
+        box.dataset.key = key; box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+        const nb = $('#updNew'), tb = $('#updTotal'), t0 = performance.now(), dur = MOTION ? 900 : 0;
+        const step = (now) => { const k = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3);
+          nb.textContent = '+' + fmt(Math.round(added * e)); tb.textContent = fmt(Math.round(news.data.length * e)); if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+        box.title = added + ' stories arrived in the update at ' + t12(f.slice(11)) + '; ' + news.data.length + ' stories from the last 7 days are on the dashboard';
+      }
+    }
+    if (f) { $('#fetched').textContent = 'FEED SYNC ' + f.slice(8, 10) + ' ' + d3.utcFormat('%b')(new Date(f.slice(0, 10) + 'T00:00:00Z')).toUpperCase() + ' · ' + t12(f.slice(11)); $('#srcNote').textContent = 'Checked ' + f.slice(0, 10) + '. Only sources the bot can read are listed.'; }
+  }
+
+  table($('#srcTable'), dash.data('source_health'), r => {
+    const p = document.createElement('span');
+    p.className = 'pill ' + r.status; p.textContent = r.status;
+    return [{ node: p }, { text: r.source }, { text: r.group }, { text: r.kind }, { text: fmt(r.stories), cls: 'num' }, { text: r.dates }, { text: r.images }];
+  });
+});
+</script>
+
+</div>
+</body>
+</html>

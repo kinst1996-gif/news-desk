@@ -1,0 +1,28 @@
+name: Weekly cleanup
+# Every Friday 5:40 AM UAE time: keep only the current files and drop all older history,
+# so old news and pictures are deleted from GitHub completely and the repository stays small.
+on:
+  schedule:
+    - cron: "40 1 * * 5"
+  workflow_dispatch:
+concurrency:
+  group: news-refresh          # never at the same time as a news refresh
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - name: Replace history with one fresh snapshot
+        run: |
+          git config user.name "news-desk-bot"
+          git config user.email "news-desk-bot@users.noreply.github.com"
+          git checkout -q --orphan fresh
+          git add -A
+          git commit -q -m "Weekly cleanup: older history removed ($(date -u +%Y-%m-%d))"
+          git push -q --force origin fresh:main
+          echo "History reset to one commit."
